@@ -1,10 +1,12 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { getStorage } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js';
+// Firebase Configuration for CVSift
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCSMYG08Nf7TUtV5HfGEHIM-9yPz5nioC0",
   authDomain: "cvsift-3dff8.firebaseapp.com",
@@ -17,9 +19,19 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+// Initialize services
+let analytics = null;
+try {
+  analytics = getAnalytics(app);
+} catch (error) {
+  console.warn('Analytics not available:', error.message);
+}
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const functions = getFunctions(app, 'us-central1'); // Specify the region where your functions are deployed
 
-export { app, analytics, auth, db, storage };
+// Export for use throughout the app
+export { app, analytics, auth, db, storage, functions };
