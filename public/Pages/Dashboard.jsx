@@ -2,19 +2,54 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../js/firebase-config';
-import { Upload, Filter, BarChart3, LogOut, User, Settings, CreditCard, FileText, TrendingUp, Clock, CheckCircle, AlertCircle, ChevronDown, Briefcase } from 'lucide-react';
+import { Upload, BarChart3, LogOut, Settings, FileText, TrendingUp, Clock, CheckCircle, AlertCircle, ChevronDown, Briefcase, MessageCircle, FileSearch, Package } from 'lucide-react';
+import { canAccessChatbot } from '../config/planConfig';
 
 export default function Dashboard() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, userData } = useAuth();
   const navigate = useNavigate();
   const [recentActivity, setRecentActivity] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [displayUserData, setDisplayUserData] = useState(null);
 
   useEffect(() => {
     loadRecentActivity();
-  }, [currentUser]);
+    loadDisplayUserData();
+  }, [currentUser, userData]);
+
+  const loadDisplayUserData = async () => {
+    if (!currentUser || !userData) return;
+
+    try {
+      const teamAccess = userData?.teamAccess;
+
+      // If user is a team member, fetch the owner's user data
+      if (teamAccess?.isTeamMember && teamAccess?.teamOwnerId) {
+        console.log('Dashboard: Fetching team owner data for display');
+        const functions = getFunctions();
+        const getTeamOwnerData = httpsCallable(functions, 'getTeamOwnerData');
+
+        const result = await getTeamOwnerData();
+
+        if (result.data.success) {
+          setDisplayUserData(result.data.ownerData);
+        } else {
+          // Fallback to own data if fetch fails
+          setDisplayUserData(userData);
+        }
+      } else {
+        // Owner or solo user - use their own data
+        setDisplayUserData(userData);
+      }
+    } catch (error) {
+      console.error('Error loading display user data:', error);
+      // Fallback to own data
+      setDisplayUserData(userData);
+    }
+  };
 
   const loadRecentActivity = async () => {
     if (!currentUser) return;
@@ -22,21 +57,52 @@ export default function Dashboard() {
     try {
       setLoadingActivity(true);
 
-      // Get recent CVs (last 5)
-      const cvsQuery = query(
-        collection(db, 'cvs'),
-        where('userId', '==', currentUser.uid),
-        orderBy('uploadedAt', 'desc'),
-        limit(5)
-      );
+      const teamAccess = userData?.teamAccess;
 
-      const cvsSnapshot = await getDocs(cvsQuery);
-      const cvs = cvsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // If user is a team member, use Cloud Function to fetch owner's CVs
+      if (teamAccess?.isTeamMember && teamAccess?.teamOwnerId) {
+        console.log('Dashboard: Fetching team CVs via Cloud Function for owner:', teamAccess.teamOwnerId);
 
-      setRecentActivity(cvs);
+        const functions = getFunctions();
+        const getTeamCVs = httpsCallable(functions, 'getTeamCVs');
+
+        const result = await getTeamCVs();
+
+        if (result.data.success) {
+          const cvsData = result.data.cvs.map(cv => ({
+            ...cv,
+            uploadedAt: cv.uploadedAt?.toDate ? cv.uploadedAt.toDate() :
+                        cv.uploadedAt?._seconds ? new Date(cv.uploadedAt._seconds * 1000) :
+                        new Date()
+          }));
+
+          // Get only the 5 most recent
+          const recentCvs = cvsData.slice(0, 5);
+          console.log('Dashboard: Team CVs fetched:', recentCvs.length);
+          setRecentActivity(recentCvs);
+        } else {
+          throw new Error('Failed to fetch team CVs');
+        }
+      } else {
+        // Owner or solo user fetches own CVs directly
+        console.log('Dashboard: Fetching own CVs for user:', currentUser.uid);
+
+        const cvsQuery = query(
+          collection(db, 'cvs'),
+          where('userId', '==', currentUser.uid),
+          orderBy('uploadedAt', 'desc'),
+          limit(5)
+        );
+
+        const cvsSnapshot = await getDocs(cvsQuery);
+        const cvs = cvsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setRecentActivity(cvs);
+      }
+
       setLoadingActivity(false);
     } catch (error) {
       console.error('Error loading recent activity:', error);
@@ -78,8 +144,10 @@ export default function Dashboard() {
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
-  // Calculate usage percentage
-  const usagePercentage = ((currentUser?.userData?.cvUploadsThisMonth || 0) / (currentUser?.userData?.cvUploadLimit || 10)) * 100;
+  // Calculate usage percentage - use displayUserData (which shows owner's data for team members)
+  const usagePercentage = ((displayUserData?.cvUploadsThisMonth || 0) / (displayUserData?.cvUploadLimit || 10)) * 100;
+  const userPlan = currentUser?.userData?.plan || 'free'; // Keep using userData.plan as it's inherited by team members
+  const isPremium = userPlan === 'professional' || userPlan === 'enterprise';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,37 +155,70 @@ export default function Dashboard() {
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">CV</span>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">CV</span>
+                </div>
+                <span className="text-2xl font-bold">Sift</span>
               </div>
-              <span className="text-2xl font-bold">Sift</span>
+
+              {/* Current Plan Badge */}
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-lime-50 to-lime-100 border border-lime-200 rounded-lg">
+                <span className="text-xs font-semibold text-gray-600">Plan:</span>
+                <span className="text-sm font-bold text-gray-900 capitalize">{userPlan}</span>
+                {isPremium && (
+                  <CheckCircle size={14} className="text-green-600" />
+                )}
+                {!isPremium && (
+                  <button
+                    onClick={() => navigate('/pricing')}
+                    className="text-xs text-orange-600 hover:text-orange-700 font-medium ml-1"
+                  >
+                    Upgrade
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* User Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                {currentUser?.photoURL ? (
-                  <img
-                    src={currentUser.photoURL}
-                    alt={currentUser.displayName}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">
-                      {currentUser?.displayName?.charAt(0).toUpperCase() || 'U'}
-                    </span>
-                  </div>
-                )}
-                <span className="text-sm font-medium text-gray-700">
-                  {currentUser?.displayName || currentUser?.email?.split('@')[0]}
-                </span>
-                <ChevronDown size={16} className="text-gray-600" />
-              </button>
+            {/* Right Side Actions */}
+            <div className="flex items-center gap-3">
+              {/* AI Assistant Button - Only for Professional/Enterprise */}
+              {canAccessChatbot(userPlan) && (
+                <button
+                  onClick={() => navigate('/chatbot')}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md"
+                  title="AI Assistant"
+                >
+                  <MessageCircle size={18} />
+                  <span className="text-sm font-medium hidden sm:inline">AI Assistant</span>
+                </button>
+              )}
+
+              {/* User Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-3 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  {currentUser?.photoURL ? (
+                    <img
+                      src={currentUser.photoURL}
+                      alt={currentUser.displayName}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                      <span className="text-white text-sm font-bold">
+                        {currentUser?.displayName?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-gray-700">
+                    {currentUser?.displayName || currentUser?.email?.split('@')[0]}
+                  </span>
+                  <ChevronDown size={16} className="text-gray-600" />
+                </button>
 
               {/* Dropdown Menu */}
               {showUserMenu && (
@@ -145,6 +246,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -158,134 +260,138 @@ export default function Dashboard() {
             Welcome back, {currentUser?.displayName?.split(' ')[0] || 'User'}! 👋
           </h1>
           <p className="text-gray-600">
-            Here's what's happening with your CV filtering today.
+            Manage your CVs, create job specifications, and find the perfect candidates.
           </p>
         </div>
 
-        {/* Stats Cards */}
+        {/* Key Actions - Hero Section */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {/* CV Uploads Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Upload className="text-orange-500" size={24} />
-              </div>
-              <span className="text-sm font-medium text-gray-500">This Month</span>
-            </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-1">
-              {currentUser?.userData?.cvUploadsThisMonth || 0}
-            </h3>
-            <p className="text-gray-600 text-sm mb-3">
-              CVs Uploaded / {currentUser?.userData?.cvUploadLimit || 10}
-            </p>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-orange-500 h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {usagePercentage >= 100 ? 'Limit reached' : `${Math.round(100 - usagePercentage)}% remaining`}
-            </p>
-          </div>
-
-          {/* Filters Applied Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Filter className="text-purple-500" size={24} />
-              </div>
-              <span className="text-sm font-medium text-gray-500">All Time</span>
-            </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-1">0</h3>
-            <p className="text-gray-600 text-sm">Filters Applied</p>
-            <div className="mt-4 flex items-center text-xs text-green-600">
-              <TrendingUp size={14} className="mr-1" />
-              <span>Ready to start filtering</span>
-            </div>
-          </div>
-
-          {/* Current Plan Card */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-lime-100 rounded-lg flex items-center justify-center">
-                <CreditCard className="text-lime-600" size={24} />
-              </div>
-              <span className="text-sm font-medium text-gray-500">Current Plan</span>
-            </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-1 capitalize">
-              {currentUser?.userData?.plan || 'Free'}
-            </h3>
-            <p className="text-gray-600 text-sm mb-3">Active Subscription</p>
-            <button 
-              onClick={() => navigate('/pricing')}
-              className="text-sm text-orange-500 hover:text-orange-600 font-medium"
-            >
-              Upgrade Plan →
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button
-              onClick={() => navigate('/upload')}
-              className="flex items-center space-x-4 p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl hover:shadow-md transition-all hover:-translate-y-1 border-2 border-orange-200"
-            >
-              <div className="w-14 h-14 bg-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+          <button
+            onClick={() => navigate('/upload')}
+            className="group relative bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 text-left overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center mb-4">
                 <Upload className="text-white" size={28} />
               </div>
-              <div className="text-left">
-                <h3 className="font-bold text-gray-900 mb-1">Upload CVs</h3>
-                <p className="text-sm text-gray-600">Add new candidates</p>
-              </div>
-            </button>
+              <h3 className="text-2xl font-bold text-white mb-2">Upload CVs</h3>
+              <p className="text-orange-100 text-sm">
+                Add new candidate CVs to your library
+              </p>
+            </div>
+          </button>
 
-            <button
-              onClick={() => navigate('/cvs')}
-              className="flex items-center space-x-4 p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl hover:shadow-md transition-all hover:-translate-y-1 border-2 border-purple-200"
-            >
-              <div className="w-14 h-14 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Filter className="text-white" size={28} />
-              </div>
-              <div className="text-left">
-                <h3 className="font-bold text-gray-900 mb-1">View CVs</h3>
-                <p className="text-sm text-gray-600">Browse & filter</p>
-              </div>
-            </button>
-
-            <button
-              onClick={() => navigate('/job-specs')}
-              className="flex items-center space-x-4 p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl hover:shadow-md transition-all hover:-translate-y-1 border-2 border-blue-200"
-            >
-              <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+          <button
+            onClick={() => navigate('/job-specs')}
+            className="group relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 text-left overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center mb-4">
                 <Briefcase className="text-white" size={28} />
               </div>
-              <div className="text-left">
-                <h3 className="font-bold text-gray-900 mb-1">Job Specs</h3>
-                <p className="text-sm text-gray-600">Match CVs</p>
-              </div>
-            </button>
+              <h3 className="text-2xl font-bold text-white mb-2">Job Specs</h3>
+              <p className="text-blue-100 text-sm">
+                Create job specs and match CVs
+              </p>
+            </div>
+          </button>
 
+          <button
+            onClick={() => navigate('/cvs')}
+            className="group relative bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1 text-left overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+            <div className="relative">
+              <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center mb-4">
+                <FileSearch className="text-white" size={28} />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Browse CVs</h3>
+              <p className="text-purple-100 text-sm">
+                Search, filter, and view your CV library
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* Stats & Recent Activity Row */}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Stats Column */}
+          <div className="space-y-6">
+            {/* CV Uploads Card */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Upload className="text-orange-500" size={24} />
+                </div>
+                <span className="text-sm font-medium text-gray-500">This Month</span>
+              </div>
+              <h3 className="text-3xl font-bold text-gray-900 mb-1">
+                {displayUserData?.cvUploadsThisMonth || 0}
+              </h3>
+              <p className="text-gray-600 text-sm mb-3">
+                CVs Uploaded{userPlan !== 'enterprise' ? ` / ${displayUserData?.cvUploadLimit || 10}` : ''}
+              </p>
+              {userPlan !== 'enterprise' && (
+                <>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-orange-500 h-2 rounded-full transition-all"
+                      style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {usagePercentage >= 100 ? 'Limit reached' : `${Math.round(100 - usagePercentage)}% remaining`}
+                  </p>
+                </>
+              )}
+              {userPlan === 'enterprise' && (
+                <p className="text-xs text-green-600 mt-2 flex items-center">
+                  <TrendingUp size={14} className="mr-1" />
+                  Unlimited uploads
+                </p>
+              )}
+            </div>
+
+            {/* CV Pack Balance Card */}
+            {(displayUserData?.cvPackBalance || 0) > 0 && (
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 shadow-sm border-2 border-purple-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <Package className="text-white" size={24} />
+                  </div>
+                  <span className="text-sm font-medium text-purple-700">CV Packs</span>
+                </div>
+                <h3 className="text-3xl font-bold text-purple-900 mb-1">
+                  {displayUserData?.cvPackBalance || 0}
+                </h3>
+                <p className="text-purple-700 text-sm mb-2">
+                  Bonus CVs Available
+                </p>
+                <p className="text-xs text-purple-600">
+                  These CVs never expire and are used automatically when your monthly limit is reached
+                </p>
+              </div>
+            )}
+
+            {/* Analytics Quick Link */}
             <button
               onClick={() => navigate('/analytics')}
-              className="flex items-center space-x-4 p-6 bg-gradient-to-br from-lime-50 to-lime-100 rounded-xl hover:shadow-md transition-all hover:-translate-y-1 border-2 border-lime-200"
+              className="w-full bg-gradient-to-br from-lime-50 to-lime-100 rounded-xl p-6 shadow-sm border-2 border-lime-200 hover:shadow-md transition-all hover:-translate-y-1 text-left"
             >
-              <div className="w-14 h-14 bg-lime-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                <BarChart3 className="text-white" size={28} />
-              </div>
-              <div className="text-left">
-                <h3 className="font-bold text-gray-900 mb-1">View Analytics</h3>
-                <p className="text-sm text-gray-600">See insights</p>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-lime-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="text-white" size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">View Analytics</h3>
+                  <p className="text-sm text-gray-600">See insights & trends</p>
+                </div>
               </div>
             </button>
           </div>
-        </div>
 
-        {/* Two Column Layout */}
-        <div className="grid lg:grid-cols-3 gap-8">
           {/* Recent Activity - Takes 2 columns */}
           <div className="lg:col-span-2 bg-white rounded-xl p-8 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between mb-6">
@@ -329,7 +435,7 @@ export default function Dashboard() {
                   >
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
                       <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Upload className="text-orange-500" size={18} />
+                        <FileText className="text-orange-500" size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate group-hover:text-orange-500 transition-colors">
@@ -352,35 +458,43 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-
-          {/* Upgrade Card - Takes 1 column */}
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 shadow-lg text-white">
-              <h3 className="text-lg font-bold mb-4">Upgrade to Pro</h3>
-              <p className="text-sm opacity-90 mb-4">
-                Unlock unlimited CV uploads and advanced filtering features
-              </p>
-              <ul className="space-y-2 mb-4 text-sm">
-                <li className="flex items-start">
-                  <span className="mr-2">✓</span>
-                  <span>Unlimited CV uploads</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✓</span>
-                  <span>Advanced analytics</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">✓</span>
-                  <span>Priority support</span>
-                </li>
-              </ul>
-            <button
-              onClick={() => navigate('/pricing')}
-              className="w-full bg-white text-orange-500 px-4 py-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Upgrade Now
-            </button>
-          </div>
         </div>
+
+        {/* Upgrade Prompt - Only for Free/Basic users */}
+        {!isPremium && (
+          <div className="mt-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-8 shadow-lg text-white">
+            <div className="flex items-center justify-between flex-wrap gap-6">
+              <div className="flex-1 min-w-[280px]">
+                <h3 className="text-2xl font-bold mb-2">Ready to unlock more features?</h3>
+                <p className="text-orange-100 mb-4">
+                  Upgrade to Professional for higher CV limits, AI assistance, and advanced analytics.
+                </p>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+                    <span>600+ CVs per month (or 1,500 with Business plan)</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+                    <span>AI chatbot assistant & advanced analytics</span>
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle size={16} className="mr-2 flex-shrink-0" />
+                    <span>Add CV packs anytime for extra capacity</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="flex-shrink-0">
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="bg-white text-orange-500 px-8 py-4 rounded-xl font-bold hover:bg-gray-50 transition-all hover:scale-105 shadow-lg"
+                >
+                  View Plans & Pricing
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

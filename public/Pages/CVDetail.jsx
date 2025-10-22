@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { db, storage, functions } from '../js/firebase-config';
+import { useAuth } from '../context/AuthContext';
 import {
   ArrowLeft,
   Download,
@@ -20,36 +21,92 @@ import {
   Loader2,
   ExternalLink,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  List,
+  Edit2,
+  Save,
+  X
 } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../components/Toast';
+import { hasFeatureAccess } from '../config/planConfig';
 
 export default function CVDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { currentUser, userData } = useAuth();
+  const toast = useToast();
 
   const [cv, setCv] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [retryModal, setRetryModal] = useState(false);
+
+  // Custom fields state
+  const [customFieldConfigs, setCustomFieldConfigs] = useState([]);
+  const [customFieldValues, setCustomFieldValues] = useState({});
+  const [editingCustomFields, setEditingCustomFields] = useState(false);
+  const [savingCustomFields, setSavingCustomFields] = useState(false);
+
+  const userPlan = userData?.plan || 'free';
+  const hasCustomFieldsAccess = hasFeatureAccess(userPlan, 'customFields');
 
   useEffect(() => {
     fetchCVDetail();
-  }, [id]);
+    if (hasCustomFieldsAccess) {
+      loadCustomFieldConfigs();
+    }
+  }, [id, hasCustomFieldsAccess]);
 
   const fetchCVDetail = async () => {
     try {
       setLoading(true);
-      const cvDoc = await getDoc(doc(db, 'cvs', id));
 
-      if (cvDoc.exists()) {
-        setCv({
-          id: cvDoc.id,
-          ...cvDoc.data(),
-          uploadedAt: cvDoc.data().uploadedAt?.toDate() || new Date()
-        });
+      // Check if user is a team member
+      const isTeamMember = userData?.teamAccess?.isTeamMember;
+
+      if (isTeamMember) {
+        // Team members: use Cloud Function to access owner's CVs
+        const getTeamCV = httpsCallable(functions, 'getTeamCV');
+        const result = await getTeamCV({ cvId: id });
+
+        if (result.data.success && result.data.cv) {
+          const cvData = {
+            ...result.data.cv,
+            uploadedAt: result.data.cv.uploadedAt?.toDate?.() ||
+                        (result.data.cv.uploadedAt?._seconds ? new Date(result.data.cv.uploadedAt._seconds * 1000) : new Date())
+          };
+          setCv(cvData);
+
+          // Load custom field values
+          if (cvData.customFields) {
+            setCustomFieldValues(cvData.customFields);
+          }
+        } else {
+          setError('CV not found');
+        }
       } else {
-        setError('CV not found');
+        // Owner: direct Firestore access
+        const cvDoc = await getDoc(doc(db, 'cvs', id));
+
+        if (cvDoc.exists()) {
+          const cvData = {
+            id: cvDoc.id,
+            ...cvDoc.data(),
+            uploadedAt: cvDoc.data().uploadedAt?.toDate() || new Date()
+          };
+          setCv(cvData);
+
+          // Load custom field values
+          if (cvData.customFields) {
+            setCustomFieldValues(cvData.customFields);
+          }
+        } else {
+          setError('CV not found');
+        }
       }
     } catch (err) {
       console.error('Error fetching CV:', err);
@@ -59,39 +116,77 @@ export default function CVDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this CV? This action cannot be undone.')) {
-      return;
-    }
+  const loadCustomFieldConfigs = async () => {
+    if (!currentUser) return;
 
+    try {
+      const configDoc = await getDoc(doc(db, 'customFieldConfigs', currentUser.uid));
+      if (configDoc.exists()) {
+        setCustomFieldConfigs(configDoc.data().fields || []);
+      }
+    } catch (err) {
+      console.error('Error loading custom field configs:', err);
+    }
+  };
+
+  const handleSaveCustomFields = async () => {
+    try {
+      setSavingCustomFields(true);
+
+      await updateDoc(doc(db, 'cvs', id), {
+        customFields: customFieldValues
+      });
+
+      // Update local state
+      setCv(prev => ({ ...prev, customFields: customFieldValues }));
+
+      toast.success('Custom fields saved successfully');
+      setEditingCustomFields(false);
+    } catch (err) {
+      console.error('Error saving custom fields:', err);
+      toast.error('Failed to save custom fields');
+    } finally {
+      setSavingCustomFields(false);
+    }
+  };
+
+  const handleCustomFieldChange = (fieldName, value) => {
+    setCustomFieldValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleDelete = async () => {
     try {
       setDeleting(true);
 
-      // Delete from Storage
-      if (cv.storagePath) {
-        const storageRef = ref(storage, cv.storagePath);
-        await deleteObject(storageRef);
+      // Use Cloud Function for deletion (handles both owner and team member cases)
+      const deleteCV = httpsCallable(functions, 'deleteCV');
+      const result = await deleteCV({ cvId: id });
+
+      if (result.data.success) {
+        toast.success('CV deleted successfully');
+
+        // Navigate back to CV list after brief delay
+        setTimeout(() => {
+          navigate('/cvs');
+        }, 1000);
+      } else {
+        throw new Error(result.data.message || 'Failed to delete CV');
       }
-
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'cvs', id));
-
-      // Navigate back to CV list
-      navigate('/cvs');
     } catch (err) {
       console.error('Error deleting CV:', err);
-      alert('Failed to delete CV. Please try again.');
+      toast.error('Failed to delete CV. Please try again.');
       setDeleting(false);
+      setDeleteModal(false);
     }
   };
 
   const handleRetryParsing = async () => {
-    if (!confirm('Retry parsing this CV? This will reprocess the document with Claude AI.')) {
-      return;
-    }
-
     try {
       setRetrying(true);
+      setRetryModal(false);
 
       // Call the Cloud Function to retry parsing
       const retryParsingFunction = httpsCallable(functions, 'retryParsing');
@@ -99,16 +194,16 @@ export default function CVDetail() {
 
       console.log('Retry result:', result.data);
 
+      toast.success('CV reprocessing initiated! Refreshing data...');
+
       // Refresh the CV data after a short delay
       setTimeout(() => {
         fetchCVDetail();
         setRetrying(false);
       }, 2000);
-
-      alert('CV reprocessing initiated! Please refresh in a few moments to see the results.');
     } catch (err) {
       console.error('Error retrying CV parsing:', err);
-      alert('Failed to retry parsing. Please try again.');
+      toast.error('Failed to retry parsing. Please try again.');
       setRetrying(false);
     }
   };
@@ -225,7 +320,7 @@ export default function CVDetail() {
               </a>
               {(cv.status === 'error' || !cv.parsed) && (
                 <button
-                  onClick={handleRetryParsing}
+                  onClick={() => setRetryModal(true)}
                   disabled={retrying}
                   className="flex items-center space-x-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -242,23 +337,26 @@ export default function CVDetail() {
                   )}
                 </button>
               )}
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={18} />
-                    <span>Delete</span>
-                  </>
-                )}
-              </button>
+              {/* Only show delete button for Owner and Admin, not Members */}
+              {(!userData?.teamAccess?.isTeamMember || userData?.teamAccess?.role === 'admin') && (
+                <button
+                  onClick={() => setDeleteModal(true)}
+                  disabled={deleting}
+                  className="flex items-center space-x-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 size={18} />
+                      <span>Delete</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
@@ -405,8 +503,33 @@ export default function CVDetail() {
               </div>
             )}
 
+            {/* Error Message */}
+            {cv.status === 'error' && cv.errorMessage && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-red-900 mb-2">Processing Error</h3>
+                    <p className="text-sm text-red-800 mb-3 whitespace-pre-wrap">
+                      {cv.errorMessage}
+                    </p>
+                    {cv.errorMessage.includes('Pages format') && (
+                      <div className="mt-3 p-3 bg-white rounded-lg border border-red-200">
+                        <p className="text-xs font-semibold text-gray-900 mb-1">How to fix this:</p>
+                        <ol className="text-xs text-gray-700 space-y-1 list-decimal list-inside">
+                          <li>Open your CV in Apple Pages</li>
+                          <li>Go to <strong>File → Export To → PDF</strong></li>
+                          <li>Save the PDF and upload it to CVSift</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* No Parsed Data Message */}
-            {(!cv.metadata || (!cv.metadata.name && !cv.metadata.email && !cv.metadata.skills?.length && !cv.metadata.experience?.length && !cv.metadata.education?.length)) && (
+            {cv.status !== 'error' && (!cv.metadata || (!cv.metadata.name && !cv.metadata.email && !cv.metadata.skills?.length && !cv.metadata.experience?.length && !cv.metadata.education?.length)) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
                 <div className="flex items-start space-x-3">
                   <AlertCircle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20} />
@@ -452,6 +575,139 @@ export default function CVDetail() {
               </div>
             </div>
 
+            {/* Custom Fields */}
+            {hasCustomFieldsAccess && customFieldConfigs.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center space-x-2">
+                    <List size={20} className="text-purple-500" />
+                    <span>Custom Fields</span>
+                  </h2>
+                  {!editingCustomFields ? (
+                    <button
+                      onClick={() => setEditingCustomFields(true)}
+                      className="text-sm text-orange-500 hover:text-orange-600 font-medium flex items-center space-x-1"
+                    >
+                      <Edit2 size={16} />
+                      <span>Edit</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setEditingCustomFields(false);
+                          setCustomFieldValues(cv.customFields || {});
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700 font-medium flex items-center space-x-1"
+                      >
+                        <X size={16} />
+                        <span>Cancel</span>
+                      </button>
+                      <button
+                        onClick={handleSaveCustomFields}
+                        disabled={savingCustomFields}
+                        className="text-sm text-orange-500 hover:text-orange-600 font-medium flex items-center space-x-1 disabled:opacity-50"
+                      >
+                        {savingCustomFields ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Save size={16} />
+                        )}
+                        <span>Save</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {customFieldConfigs.map((field) => {
+                    // Check conditional logic
+                    if (field.conditionalOn) {
+                      const conditionalValue = customFieldValues[field.conditionalOn];
+                      if (conditionalValue !== field.conditionalValue) {
+                        return null; // Hide field if condition not met
+                      }
+                    }
+
+                    return (
+                    <div key={field.id}>
+                      <label className="block text-xs text-gray-500 mb-1">
+                        {field.label}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                      </label>
+                      {editingCustomFields ? (
+                        <>
+                          {field.type === 'text' && (
+                            <input
+                              type="text"
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              placeholder={`Enter ${field.label.toLowerCase()}`}
+                            />
+                          )}
+                          {field.type === 'number' && (
+                            <input
+                              type="number"
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              placeholder={`Enter ${field.label.toLowerCase()}`}
+                            />
+                          )}
+                          {field.type === 'date' && (
+                            <input
+                              type="date"
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                          )}
+                          {field.type === 'boolean' && (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                checked={customFieldValues[field.name] === true}
+                                onChange={(e) => handleCustomFieldChange(field.name, e.target.checked)}
+                                className="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                              />
+                              <span className="text-sm text-gray-700">
+                                {customFieldValues[field.name] ? 'Yes' : 'No'}
+                              </span>
+                            </div>
+                          )}
+                          {field.type === 'select' && (
+                            <select
+                              value={customFieldValues[field.name] || ''}
+                              onChange={(e) => handleCustomFieldChange(field.name, e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            >
+                              <option value="">Select {field.label.toLowerCase()}</option>
+                              {field.options?.map((option, idx) => (
+                                <option key={idx} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-gray-900 font-medium text-sm">
+                          {customFieldValues[field.name] !== undefined && customFieldValues[field.name] !== null && customFieldValues[field.name] !== ''
+                            ? field.type === 'boolean'
+                              ? customFieldValues[field.name] ? 'Yes' : 'No'
+                              : customFieldValues[field.name]
+                            : <span className="text-gray-400 italic">Not set</span>
+                          }
+                        </p>
+                      )}
+                    </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Quick Actions */}
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border-2 border-orange-200 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
@@ -476,6 +732,33 @@ export default function CVDetail() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Delete CV"
+        message="Are you sure you want to delete this CV? This action cannot be undone and will permanently remove all associated data."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        confirmLoading={deleting}
+      />
+
+      {/* Retry Parsing Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={retryModal}
+        onClose={() => setRetryModal(false)}
+        onConfirm={handleRetryParsing}
+        title="Retry CV Parsing"
+        message="This will reprocess the CV document with Claude AI. The process may take a few moments. Do you want to continue?"
+        confirmText="Retry Parsing"
+        cancelText="Cancel"
+        type="info"
+        icon={RefreshCw}
+        confirmLoading={retrying}
+      />
     </div>
   );
 }

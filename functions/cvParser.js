@@ -6,6 +6,142 @@ const pdfParse = require("pdf-parse");
 const AdmZip = require("adm-zip");
 const xml2js = require("xml2js");
 const {CV_PARSER_PROMPT} = require("./cvParserPrompts");
+const {logCVUpload, logCVDelete, logCVUpdate} = require("./activityLogs");
+
+/**
+ * Get team CVs for team members
+ * Uses Admin SDK to bypass security rules
+ * @param {object} request - The request object
+ * @return {Promise<object>} - CVs data
+ */
+exports.getTeamCVs = onCall(async (request) => {
+  try {
+    const userId = request.auth?.uid;
+
+    if (!userId) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    const db = admin.firestore();
+
+    // Check if user is a team member
+    const memberSnapshot = await db.collection("teamMembers")
+        .where("userId", "==", userId)
+        .limit(1)
+        .get();
+
+    if (memberSnapshot.empty) {
+      throw new HttpsError(
+          "permission-denied",
+          "User is not a team member",
+      );
+    }
+
+    const memberData = memberSnapshot.docs[0].data();
+    const teamOwnerId = memberData.teamOwnerId;
+
+    // Fetch owner's CVs using Admin SDK (bypasses security rules)
+    const cvsSnapshot = await db.collection("cvs")
+        .where("userId", "==", teamOwnerId)
+        .orderBy("uploadedAt", "desc")
+        .get();
+
+    const cvs = cvsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return {
+      success: true,
+      cvs: cvs,
+      teamOwnerId: teamOwnerId,
+    };
+  } catch (error) {
+    console.error("Error fetching team CVs:", error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError(
+        "internal",
+        error.message || "Failed to fetch team CVs",
+    );
+  }
+});
+
+/**
+ * Get a single CV for team members
+ * Team members need to use Admin SDK to access owner's CVs
+ */
+exports.getTeamCV = onCall(async (request) => {
+  try {
+    const userId = request.auth?.uid;
+    const {cvId} = request.data;
+
+    if (!userId) {
+      throw new HttpsError("unauthenticated", "User must be authenticated");
+    }
+
+    if (!cvId) {
+      throw new HttpsError("invalid-argument", "CV ID is required");
+    }
+
+    const db = admin.firestore();
+
+    // Check if user is a team member
+    const memberSnapshot = await db.collection("teamMembers")
+        .where("userId", "==", userId)
+        .limit(1)
+        .get();
+
+    if (memberSnapshot.empty) {
+      throw new HttpsError(
+          "permission-denied",
+          "User is not a team member",
+      );
+    }
+
+    const memberData = memberSnapshot.docs[0].data();
+    const teamOwnerId = memberData.teamOwnerId;
+
+    // Fetch the CV using Admin SDK
+    const cvDoc = await db.collection("cvs").doc(cvId).get();
+
+    if (!cvDoc.exists) {
+      throw new HttpsError("not-found", "CV not found");
+    }
+
+    const cvData = cvDoc.data();
+
+    // Verify this CV belongs to the team owner
+    if (cvData.userId !== teamOwnerId) {
+      throw new HttpsError(
+          "permission-denied",
+          "CV does not belong to your team owner",
+      );
+    }
+
+    return {
+      success: true,
+      cv: {
+        id: cvDoc.id,
+        ...cvData,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching team CV:", error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError(
+        "internal",
+        error.message || "Failed to fetch CV",
+    );
+  }
+});
 
 /**
  * Extract text from Apple Pages file
@@ -18,40 +154,93 @@ async function extractTextFromPages(fileBuffer) {
     const zip = new AdmZip(fileBuffer);
     const zipEntries = zip.getEntries();
 
-    // Look for index.xml which contains the content
-    const indexEntry = zipEntries.find((entry) =>
-      entry.entryName === "index.xml" ||
-      entry.entryName.endsWith("/index.xml"),
-    );
+    console.log("Pages file contains entries:", zipEntries.map((e) => e.entryName));
 
-    if (!indexEntry) {
-      throw new Error("index.xml not found in Pages file");
+    // Look for content files - modern Pages files use different structures
+    let contentEntry = null;
+    let contentType = null;
+
+    // First try to find index.xml (older format)
+    for (const entry of zipEntries) {
+      if (entry.entryName === "index.xml" || entry.entryName.endsWith("/index.xml")) {
+        contentEntry = entry;
+        contentType = "xml";
+        break;
+      }
     }
 
-    const xmlContent = indexEntry.getData().toString("utf8");
-
-    // Parse XML
-    const parser = new xml2js.Parser();
-    const result = await parser.parseStringPromise(xmlContent);
-
-    // Extract text from XML structure
-    // Pages files have complex XML, so we'll extract all text nodes
-    let text = "";
-    const extractTextFromNode = (node) => {
-      if (typeof node === "string") {
-        text += node + " ";
-      } else if (Array.isArray(node)) {
-        node.forEach(extractTextFromNode);
-      } else if (typeof node === "object") {
-        Object.values(node).forEach(extractTextFromNode);
+    // If no index.xml, try to find QuickLook/Preview.pdf (modern format)
+    if (!contentEntry) {
+      for (const entry of zipEntries) {
+        if (entry.entryName.includes("QuickLook/Preview.pdf") ||
+            entry.entryName.includes("preview.pdf")) {
+          contentEntry = entry;
+          contentType = "pdf";
+          console.log("Using QuickLook PDF preview for text extraction");
+          break;
+        }
       }
-    };
+    }
 
-    extractTextFromNode(result);
-    return text.trim();
+    // If no PDF preview, check for preview-web.jpg and provide helpful error
+    if (!contentEntry) {
+      const hasPreviewImages = zipEntries.some((e) =>
+        e.entryName.includes("preview.jpg") ||
+        e.entryName.includes("preview-web.jpg"),
+      );
+
+      const hasIwaFiles = zipEntries.some((e) => e.entryName.includes(".iwa"));
+
+      if (hasIwaFiles && hasPreviewImages) {
+        console.error("Modern Pages format detected (.iwa files with image previews)");
+        console.log("This format requires OCR or PDF export to extract text");
+        throw new Error(
+            "Modern Pages format detected. " +
+          "Please export your CV as PDF from Pages (File > Export To > PDF) and upload the PDF instead. " +
+          "Alternatively, save as Pages '09 format for compatibility.",
+        );
+      }
+
+      throw new Error("Modern Pages format not fully supported. Please export as PDF.");
+    }
+
+    if (!contentEntry) {
+      throw new Error("No readable content found in Pages file");
+    }
+
+    // Extract content based on type
+    if (contentType === "pdf") {
+      // Extract PDF and parse it
+      const pdfBuffer = contentEntry.getData();
+      const pdfData = await pdfParse(pdfBuffer);
+      return pdfData.text;
+    } else if (contentType === "xml") {
+      // Parse XML (older format)
+      const xmlContent = contentEntry.getData().toString("utf8");
+
+      const parser = new xml2js.Parser();
+      const result = await parser.parseStringPromise(xmlContent);
+
+      let text = "";
+      const extractTextFromNode = (node) => {
+        if (typeof node === "string") {
+          text += node + " ";
+        } else if (Array.isArray(node)) {
+          node.forEach(extractTextFromNode);
+        } else if (typeof node === "object") {
+          Object.values(node).forEach(extractTextFromNode);
+        }
+      };
+
+      extractTextFromNode(result);
+      return text.trim();
+    }
+
+    throw new Error("Unsupported Pages file structure");
   } catch (error) {
     console.error("Error extracting text from Pages file:", error);
-    throw new Error("Failed to extract text from Pages file");
+    console.error("Error details:", error.message);
+    throw new Error(`Failed to extract text from Pages file: ${error.message}`);
   }
 }
 
@@ -162,6 +351,24 @@ ${cvText.substring(0, 15000)}`,
         });
 
         console.log(`Successfully parsed CV ${cvId}`);
+
+        // Log CV upload activity
+        try {
+          // Use uploadedBy if available (team member), otherwise userId (owner)
+          const actualUploaderId = cvData.uploadedBy || cvData.userId;
+          const teamOwnerId = cvData.userId; // This is always the owner (team owner for team member uploads)
+
+          await logCVUpload(
+              actualUploaderId,
+              teamOwnerId,
+              cvId,
+              cvData.fileName || "Unnamed CV",
+          );
+        } catch (logError) {
+          console.error("Error logging CV upload:", logError);
+          // Don't fail the parsing if logging fails
+        }
+
         return null;
       } catch (error) {
         console.error(`Error parsing CV ${cvId}:`, error);
@@ -227,5 +434,177 @@ exports.retryParsing = onCall(async (request) => {
   } catch (error) {
     console.error("Error triggering retry:", error);
     throw new HttpsError("internal", error.message);
+  }
+});
+
+/**
+ * Delete a CV with audit logging
+ */
+exports.deleteCV = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+
+  const {cvId} = request.data;
+  if (!cvId) {
+    throw new HttpsError("invalid-argument", "CV ID is required");
+  }
+
+  try {
+    const db = admin.firestore();
+    const cvRef = db.collection("cvs").doc(cvId);
+    const cvDoc = await cvRef.get();
+
+    if (!cvDoc.exists) {
+      throw new HttpsError("not-found", "CV not found");
+    }
+
+    const cvData = cvDoc.data();
+    const userId = request.auth.uid;
+
+    // Check permissions - user must own the CV or be accessing via team
+    let teamOwnerId = cvData.userId;
+    let isTeamMember = false;
+
+    // Check if user is team member accessing team owner's CV
+    if (cvData.userId !== userId) {
+      const teamMemberSnapshot = await db.collection("teamMembers")
+          .where("userId", "==", userId)
+          .where("teamOwnerId", "==", cvData.userId)
+          .limit(1)
+          .get();
+
+      if (teamMemberSnapshot.empty) {
+        throw new HttpsError(
+            "permission-denied",
+            "You don't have permission to delete this CV",
+        );
+      }
+
+      isTeamMember = true;
+      teamOwnerId = cvData.userId;
+    }
+
+    // Delete from Storage if exists
+    if (cvData.storagePath) {
+      try {
+        await admin.storage().bucket().file(cvData.storagePath).delete();
+      } catch (storageError) {
+        console.error("Error deleting file from storage:", storageError);
+        // Continue with Firestore deletion even if storage fails
+      }
+    }
+
+    // Delete from Firestore
+    await cvRef.delete();
+
+    // Log deletion activity
+    try {
+      await logCVDelete(
+          userId,
+          teamOwnerId,
+          cvId,
+          cvData.data?.name || cvData.fileName || "Unnamed CV",
+      );
+    } catch (logError) {
+      console.error("Error logging CV deletion:", logError);
+      // Don't fail the deletion if logging fails
+    }
+
+    return {
+      success: true,
+      message: "CV deleted successfully",
+      wasTeamMemberAction: isTeamMember,
+    };
+  } catch (error) {
+    console.error("Error deleting CV:", error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError("internal", `Failed to delete CV: ${error.message}`);
+  }
+});
+
+/**
+ * Update CV custom fields with audit logging
+ */
+exports.updateCVFields = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "User must be authenticated");
+  }
+
+  const {cvId, customFields} = request.data;
+  if (!cvId || !customFields) {
+    throw new HttpsError("invalid-argument", "CV ID and custom fields are required");
+  }
+
+  try {
+    const db = admin.firestore();
+    const cvRef = db.collection("cvs").doc(cvId);
+    const cvDoc = await cvRef.get();
+
+    if (!cvDoc.exists) {
+      throw new HttpsError("not-found", "CV not found");
+    }
+
+    const cvData = cvDoc.data();
+    const userId = request.auth.uid;
+
+    // Check permissions
+    let teamOwnerId = cvData.userId;
+    let isTeamMember = false;
+
+    if (cvData.userId !== userId) {
+      const teamMemberSnapshot = await db.collection("teamMembers")
+          .where("userId", "==", userId)
+          .where("teamOwnerId", "==", cvData.userId)
+          .limit(1)
+          .get();
+
+      if (teamMemberSnapshot.empty) {
+        throw new HttpsError(
+            "permission-denied",
+            "You don't have permission to update this CV",
+        );
+      }
+
+      isTeamMember = true;
+      teamOwnerId = cvData.userId;
+    }
+
+    // Update custom fields
+    await cvRef.update({
+      customFields: customFields,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Log update activity
+    try {
+      await logCVUpdate(
+          userId,
+          teamOwnerId,
+          cvId,
+          cvData.data?.name || cvData.fileName || "Unnamed CV",
+          "custom fields updated",
+      );
+    } catch (logError) {
+      console.error("Error logging CV update:", logError);
+    }
+
+    return {
+      success: true,
+      message: "CV updated successfully",
+      wasTeamMemberAction: isTeamMember,
+    };
+  } catch (error) {
+    console.error("Error updating CV:", error);
+
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+
+    throw new HttpsError("internal", `Failed to update CV: ${error.message}`);
   }
 });

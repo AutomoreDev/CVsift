@@ -1,11 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './components/Toast';
 
 // Import Pages
 import LandingPage from './Pages/LandingPage';
 import SignUp from './Pages/SignUp';
 import SignIn from './Pages/SignIn';
+import ResetPassword from './Pages/ResetPassword';
 import Dashboard from './Pages/Dashboard';
 import UploadCV from './Pages/UploadCV';
 import CVList from './Pages/CVList';
@@ -16,6 +18,8 @@ import PaymentCancel from './Pages/PaymentCancel';
 import Analytics from './Pages/Analytics';
 import AccountSettings from './Pages/AccountSettings';
 import JobSpecs from './Pages/JobSpecs';
+import Chatbot from './Pages/Chatbot';
+import AcceptInvite from './Pages/AcceptInvite';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -52,15 +56,26 @@ function AppRoutes() {
           </PublicRoute>
         } 
       />
-      <Route 
-        path="/signin" 
+      <Route
+        path="/signin"
         element={
           <PublicRoute>
             <SignIn />
           </PublicRoute>
-        } 
+        }
       />
-      
+      <Route
+        path="/reset-password"
+        element={
+          <PublicRoute>
+            <ResetPassword />
+          </PublicRoute>
+        }
+      />
+
+      {/* Accept Team Invitation (Public - no auth required initially) */}
+      <Route path="/accept-invite" element={<AcceptInvite />} />
+
       {/* Protected Routes */}
       <Route 
         path="/dashboard" 
@@ -142,6 +157,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/chatbot"
+        element={
+          <ProtectedRoute>
+            <Chatbot />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch all - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -153,7 +176,9 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
       </AuthProvider>
     </Router>
   );

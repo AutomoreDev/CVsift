@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function SignIn() {
@@ -138,9 +138,9 @@ export default function SignIn() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
-                <a href="/reset-password" className="text-sm text-orange-500 hover:text-orange-600 font-medium">
+                <Link to="/reset-password" className="text-sm text-orange-500 hover:text-orange-600 font-medium">
                   Forgot?
-                </a>
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
