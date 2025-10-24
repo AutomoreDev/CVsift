@@ -7,7 +7,7 @@
   <!-- Homepage -->
   <url>
     <loc>https://cvsift-3dff8.web.app/</loc>
-    <lastmod>2025-10-18</lastmod>
+    <lastmod>2025-10-22</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
@@ -15,23 +15,15 @@
   <!-- Pricing Page -->
   <url>
     <loc>https://cvsift-3dff8.web.app/pricing</loc>
-    <lastmod>2025-10-18</lastmod>
+    <lastmod>2025-10-22</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
 
-  <!-- Features/About Pages -->
+  <!-- Sign In Page -->
   <url>
-    <loc>https://cvsift-3dff8.web.app/features</loc>
-    <lastmod>2025-10-18</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- Login Page -->
-  <url>
-    <loc>https://cvsift-3dff8.web.app/login</loc>
-    <lastmod>2025-10-18</lastmod>
+    <loc>https://cvsift-3dff8.web.app/signin</loc>
+    <lastmod>2025-10-22</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -39,17 +31,25 @@
   <!-- Signup Page -->
   <url>
     <loc>https://cvsift-3dff8.web.app/signup</loc>
-    <lastmod>2025-10-18</lastmod>
+    <lastmod>2025-10-22</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
 
-  <!-- Contact/Support -->
+  <!-- Reset Password Page -->
   <url>
-    <loc>https://cvsift-3dff8.web.app/contact</loc>
-    <lastmod>2025-10-18</lastmod>
+    <loc>https://cvsift-3dff8.web.app/reset-password</loc>
+    <lastmod>2025-10-22</lastmod>
     <changefreq>yearly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Accept Team Invitation -->
+  <url>
+    <loc>https://cvsift-3dff8.web.app/accept-invite</loc>
+    <lastmod>2025-10-22</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
   </url>
 
 </urlset>

@@ -90,7 +90,11 @@ export function AuthProvider({ children }) {
 
       return result.user;
     } catch (err) {
-      setError(err.message);
+      // Don't set error state for MFA required - let the component handle it
+      if (err.code !== 'auth/multi-factor-auth-required') {
+        setError(err.message);
+      }
+      // Always re-throw the error so the component can handle it
       throw err;
     }
   }
@@ -145,7 +149,11 @@ export function AuthProvider({ children }) {
 
       return result.user;
     } catch (err) {
-      setError(err.message);
+      // Don't set error state for MFA required - let the component handle it
+      if (err.code !== 'auth/multi-factor-auth-required') {
+        setError(err.message);
+      }
+      // Always re-throw the error so the component can handle it
       throw err;
     }
   }

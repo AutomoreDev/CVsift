@@ -6,6 +6,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../js/firebase-config';
 import { Upload, BarChart3, LogOut, Settings, FileText, TrendingUp, Clock, CheckCircle, AlertCircle, ChevronDown, Briefcase, MessageCircle, FileSearch, Package } from 'lucide-react';
 import { canAccessChatbot } from '../config/planConfig';
+import { HorizontalBannerAd } from '../components/AdSenseAd';
+import VersionBadge from '../components/VersionBadge';
 
 export default function Dashboard() {
   const { currentUser, logout, userData } = useAuth();
@@ -183,6 +185,18 @@ export default function Dashboard() {
 
             {/* Right Side Actions */}
             <div className="flex items-center gap-3">
+              {/* Master Account Dashboard - Only for Master Role */}
+              {userData?.role === 'master' && (
+                <button
+                  onClick={() => navigate('/master-dashboard')}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow-md"
+                  title="Master Account Dashboard"
+                >
+                  <TrendingUp size={18} />
+                  <span className="text-sm font-medium hidden sm:inline">Master Dashboard</span>
+                </button>
+              )}
+
               {/* AI Assistant Button - Only for Professional/Enterprise */}
               {canAccessChatbot(userPlan) && (
                 <button
@@ -460,6 +474,9 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* AdSense Ad - Only for Free users */}
+        <HorizontalBannerAd className="max-w-5xl mx-auto" />
+
         {/* Upgrade Prompt - Only for Free/Basic users */}
         {!isPremium && (
           <div className="mt-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-8 shadow-lg text-white">
@@ -496,6 +513,9 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Version Badge */}
+      <VersionBadge position="bottom-right" />
     </div>
   );
 }

@@ -38,8 +38,12 @@ export default function SignUp() {
 
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+    } else if (!formData.email.includes('@')) {
+      newErrors.email = 'Email must contain @';
+    } else if (!formData.email.includes('.')) {
+      newErrors.email = 'Email must contain a domain (e.g., .com, .co.za)';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
     }
 
     if (!formData.password) {

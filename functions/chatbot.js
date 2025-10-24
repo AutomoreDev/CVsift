@@ -175,12 +175,29 @@ exports.chatWithAssistant = onCall(async (request) => {
     }
 
     const userData = userDoc.data();
-    const userPlan = userData.plan || "free";
+    let userPlan = userData.plan || "free";
+    let accountOwnerId = userId;
+
+    // Check if user is a team member - if so, use team owner's plan
+    const teamMemberQuery = await db.collection("teamMembers")
+        .where("userId", "==", userId)
+        .limit(1)
+        .get();
+
+    if (!teamMemberQuery.empty) {
+      // User is a team member - get owner's plan
+      const teamMemberData = teamMemberQuery.docs[0].data();
+      accountOwnerId = teamMemberData.teamOwnerId;
+
+      const ownerDoc = await db.collection("users").doc(accountOwnerId).get();
+      if (ownerDoc.exists) {
+        userPlan = ownerDoc.data().plan || "free";
+      }
+    }
 
     // Check if user has access to chatbot (Professional or Enterprise only)
-    // Free and Basic users don't have access
-    const allowedPlans = ["professional", "enterprise"];
-    if (!allowedPlans.includes(userPlan)) {
+    const allowedPlans = ["professional", "enterprise", "submaster"];
+    if (!allowedPlans.includes(userPlan.toLowerCase())) {
       throw new HttpsError(
           "permission-denied",
           "Chatbot is only available for Professional and Enterprise users. Please upgrade your plan.",
@@ -228,6 +245,20 @@ exports.chatWithAssistant = onCall(async (request) => {
 
     // Extract assistant response
     const assistantMessage = response.content[0].text;
+
+    // Track usage count only (no message content for privacy)
+    try {
+      // accountOwnerId was already determined above (either user or team owner)
+      await db.collection("chatbotUsage").add({
+        userId: userId,
+        accountOwnerId: accountOwnerId, // The sub-master account to bill
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    } catch (logError) {
+      console.error("Failed to log chatbot usage:", logError);
+      // Don't fail the request if logging fails
+    }
 
     return {
       success: true,

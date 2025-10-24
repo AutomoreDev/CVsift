@@ -33,6 +33,7 @@ import {
   List
 } from 'lucide-react';
 import { canCreateJobSpecs, hasFeatureAccess } from '../config/planConfig';
+import { InFeedAd } from '../components/AdSenseAd';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MatchBreakdownReport from '../components/MatchBreakdownReport';
 import { useToast } from '../components/Toast';
@@ -1851,6 +1852,9 @@ export default function CVList() {
             </div>
           </div>
         )}
+
+        {/* AdSense Ad - Only for Free users */}
+        <InFeedAd className="max-w-5xl mx-auto" />
       </div>
 
       {/* Delete Confirmation Dialog */}

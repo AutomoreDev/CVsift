@@ -13,6 +13,7 @@
 
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const {logApiCall} = require("./apiLogger");
 
 // Lazy initialize firestore
 const getDb = () => admin.firestore();
@@ -341,6 +342,9 @@ exports.getAdvancedAnalytics = onCall(async (request) => {
   const {startDate, endDate} = request.data;
 
   try {
+    // Log API call for billing
+    await logApiCall(userId, "getAdvancedAnalytics", "ANALYTICS");
+
     // Run all analytics in parallel
     const [timeToHire, funnel, sources, diversity, insights] = await Promise.all([
       calculateTimeToHire(userId, startDate, endDate),
@@ -378,6 +382,9 @@ exports.generateCustomReport = onCall(async (request) => {
 
   const {reportType, startDate, endDate, filters} = request.data;
   const userId = request.auth.uid;
+
+  // Log API call for billing
+  await logApiCall(userId, "generateCustomReport", "CUSTOM_REPORT");
 
   // This would be expanded with different report types
   try {

@@ -3,6 +3,7 @@
 const {onCall} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {calculateAdvancedMatch} = require("./advancedMatcher");
+const {logApiCall} = require("./apiLogger");
 
 /**
  * Calculate match score between a CV and a job specification
@@ -59,6 +60,9 @@ exports.calculateMatchScore = onCall(async (request) => {
 
     // Calculate match score using advanced matcher
     const matchResult = calculateAdvancedMatch(cvData, jobSpec);
+
+    // Log API call for billing
+    await logApiCall(userId, "calculateMatchScore", "CV_MATCH");
 
     // Store match result with owner's userId
     await db.collection("cvMatches").add({
@@ -136,6 +140,9 @@ exports.batchCalculateMatches = onCall(async (request) => {
     if (jobSpec.userId !== effectiveUserId) {
       throw new Error("Unauthorized access to job specification");
     }
+
+    // Log API call for billing (batch operation counts as one API call)
+    await logApiCall(userId, "batchCalculateMatches", "BATCH_CV_MATCH");
 
     // Process all CVs
     const results = [];

@@ -379,9 +379,6 @@ export default function LandingPage() {
                 <span>Get Started Free</span>
                 <ChevronRight size={20} />
               </button>
-              <button className="w-full sm:w-auto border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 text-gray-700 hover:text-orange-700 px-8 py-4 rounded-xl font-semibold text-base lg:text-lg transition-all">
-                Watch Demo
-              </button>
             </div>
 
             {/* Stats Bar */}
@@ -965,6 +962,9 @@ export default function LandingPage() {
                 <span className="text-white text-xl font-bold">Sift</span>
               </div>
               <p className="text-sm leading-relaxed mb-4">Making hiring faster and smarter with AI-powered CV screening.</p>
+              <p className="text-xs text-gray-500 mb-2">
+                Support: <a href="mailto:emma@automore.co.za" className="text-orange-500 hover:text-orange-400 transition-colors font-semibold">emma@automore.co.za</a>
+              </p>
               <p className="text-xs text-gray-500 mb-4">
                 Developed and designed by{' '}
                 <a
@@ -1001,18 +1001,18 @@ export default function LandingPage() {
             <div>
               <h4 className="text-white font-semibold mb-4 text-sm">Company</h4>
               <ul className="space-y-2.5 text-sm">
-                <li><a href="#" className="hover:text-orange-500 transition-colors">About Us</a></li>
+                <li><a href="/about" className="hover:text-orange-500 transition-colors">About Us</a></li>
                 <li><a href="#" className="hover:text-orange-500 transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-orange-500 transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Contact</a></li>
+                <li><a href="/contact" className="hover:text-orange-500 transition-colors">Contact</a></li>
               </ul>
             </div>
             
             <div>
               <h4 className="text-white font-semibold mb-4 text-sm">Legal</h4>
               <ul className="space-y-2.5 text-sm">
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-orange-500 transition-colors">Terms of Service</a></li>
+                <li><a href="/privacy-policy" className="hover:text-orange-500 transition-colors">Privacy Policy</a></li>
+                <li><a href="/terms-of-service" className="hover:text-orange-500 transition-colors">Terms of Service</a></li>
                 <li><a href="#" className="hover:text-orange-500 transition-colors">GDPR</a></li>
                 <li><a href="#" className="hover:text-orange-500 transition-colors">Security</a></li>
               </ul>
@@ -1020,11 +1020,11 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-center md:text-left mb-4 md:mb-0">&copy; 2024 CVSift. All rights reserved.</p>
+            <p className="text-sm text-center md:text-left mb-4 md:mb-0">&copy; 2025 CVSift. All rights reserved.</p>
             <div className="flex items-center space-x-6 text-sm">
-              <a href="#" className="hover:text-orange-500 transition-colors">Status</a>
-              <a href="#" className="hover:text-orange-500 transition-colors">Help Center</a>
-              <a href="#" className="hover:text-orange-500 transition-colors">Sitemap</a>
+              <a href="/privacy-policy" className="hover:text-orange-500 transition-colors">Privacy Policy</a>
+              <a href="/terms-of-service" className="hover:text-orange-500 transition-colors">Terms of Service</a>
+              <a href="https://www.automore.co.za" target="_blank" rel="noopener noreferrer" className="hover:text-orange-500 transition-colors">About Automore</a>
             </div>
           </div>
         </div>

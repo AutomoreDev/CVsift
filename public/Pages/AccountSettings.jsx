@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { updateProfile, updateEmail, updatePassword } from 'firebase/auth';
+import { updateProfile, updateEmail, updatePassword, multiFactor, PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../js/firebase-config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -27,7 +27,9 @@ import {
   Power,
   Package,
   List,
-  Users
+  Users,
+  Smartphone,
+  X
 } from 'lucide-react';
 
 export default function AccountSettings() {
@@ -52,6 +54,18 @@ export default function AccountSettings() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(tabParam || 'profile');
+
+  // MFA State
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [enrolledFactors, setEnrolledFactors] = useState([]);
+  const [showMfaEnrollment, setShowMfaEnrollment] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationId, setVerificationId] = useState('');
+  const [showVerificationInput, setShowVerificationInput] = useState(false);
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+  const [disableMfaModal, setDisableMfaModal] = useState({ isOpen: false, factorUid: null });
 
   // Master Management State
   const [isPrimaryMaster, setIsPrimaryMaster] = useState(false);
@@ -93,6 +107,243 @@ export default function AccountSettings() {
       checkPrimaryMasterStatus();
     }
   }, [currentUser]);
+
+  // Check MFA enrollment status
+  useEffect(() => {
+    if (currentUser) {
+      const user = auth.currentUser;
+      if (user) {
+        const enrolledMfaFactors = multiFactor(user).enrolledFactors;
+        setEnrolledFactors(enrolledMfaFactors);
+        setMfaEnabled(enrolledMfaFactors.length > 0);
+      }
+    }
+  }, [currentUser]);
+
+  // Initialize reCAPTCHA when MFA enrollment is shown
+  useEffect(() => {
+    if (showMfaEnrollment && !recaptchaVerifier) {
+      // Use setTimeout to ensure DOM is ready
+      const timer = setTimeout(() => {
+        try {
+          // Clear any existing reCAPTCHA widget
+          const container = document.getElementById('recaptcha-container');
+          if (!container) return;
+
+          container.innerHTML = '';
+
+          const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'normal',
+            callback: (response) => {
+              console.log('reCAPTCHA solved successfully');
+            },
+            'error-callback': (error) => {
+              console.error('reCAPTCHA error:', error);
+              toast.error('Security verification failed. Please try again.');
+            }
+          });
+
+          // Render the verifier
+          verifier.render().then((widgetId) => {
+            console.log('reCAPTCHA widget rendered:', widgetId);
+            setRecaptchaVerifier(verifier);
+          }).catch((error) => {
+            console.error('Error rendering reCAPTCHA:', error);
+            // Silently fail - user can try again
+          });
+        } catch (error) {
+          console.error('Error initializing reCAPTCHA:', error);
+          // Silently fail - user can try again
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+
+    // Cleanup on unmount or when enrollment is cancelled
+    return () => {
+      if (recaptchaVerifier && !showMfaEnrollment) {
+        try {
+          recaptchaVerifier.clear();
+          setRecaptchaVerifier(null);
+        } catch (error) {
+          console.error('Error clearing reCAPTCHA:', error);
+        }
+      }
+    };
+  }, [showMfaEnrollment]);
+
+  // MFA Enrollment: Send SMS verification code
+  const handleStartMfaEnrollment = async () => {
+    console.log('=== MFA Enrollment Started ===');
+    console.log('Phone number:', phoneNumber);
+    console.log('RecaptchaVerifier exists:', !!recaptchaVerifier);
+
+    if (!phoneNumber || phoneNumber.length < 10) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+
+    if (!recaptchaVerifier) {
+      console.error('RecaptchaVerifier not initialized!');
+      toast.error('Security verification not ready. Please wait a moment and try again.');
+      return;
+    }
+
+    setMfaLoading(true);
+    try {
+      console.log('Step 1: Getting current user...');
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+      console.log('User ID:', user.uid);
+
+      console.log('Step 2: Getting MFA session...');
+      const session = await multiFactor(user).getSession();
+      console.log('Session obtained:', !!session);
+
+      // Create phone auth provider
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      console.log('Step 3: Formatted phone number:', formattedPhone);
+
+      const phoneInfoOptions = {
+        phoneNumber: formattedPhone,
+        session
+      };
+
+      console.log('Step 4: Initiating phone verification...');
+      const phoneAuthProvider = new PhoneAuthProvider(auth);
+
+      // Add timeout to detect hanging promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Phone verification timeout after 30 seconds')), 30000);
+      });
+
+      const verificationId = await Promise.race([
+        phoneAuthProvider.verifyPhoneNumber(phoneInfoOptions, recaptchaVerifier),
+        timeoutPromise
+      ]);
+      console.log('Step 5: Verification ID received:', verificationId);
+
+      setVerificationId(verificationId);
+      setShowVerificationInput(true);
+      toast.success('Verification code sent to your phone!');
+      console.log('=== MFA Enrollment Success ===');
+
+      // Log SMS verification for tracking
+      try {
+        const logSms = httpsCallable(functions, 'logSmsVerification');
+        await logSms({
+          phoneNumber: phoneNumber,
+          purpose: 'mfa_enrollment'
+        });
+      } catch (logError) {
+        console.error('Failed to log SMS verification:', logError);
+        // Don't block the flow if logging fails
+      }
+    } catch (error) {
+      console.error('=== MFA Enrollment Error ===');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
+
+      // Provide specific error messages
+      if (error.code === 'auth/operation-not-allowed') {
+        toast.error('Multi-factor authentication is not enabled. Please contact support to enable MFA for your account.');
+      } else if (error.code === 'auth/invalid-phone-number') {
+        toast.error('Invalid phone number format. Please include country code (e.g., +27821234567)');
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error('Too many requests. Please try again later.');
+      } else if (error.code === 'auth/captcha-check-failed') {
+        toast.error('Security verification failed. Please refresh the page and try again. If the issue persists, contact support.');
+      } else if (error.code === 'auth/missing-phone-number') {
+        toast.error('Please enter a phone number');
+      } else {
+        toast.error(error.message || 'Failed to send verification code');
+      }
+    } finally {
+      setMfaLoading(false);
+      console.log('MFA loading set to false');
+    }
+  };
+
+  // MFA Enrollment: Verify code and complete enrollment
+  const handleCompleteMfaEnrollment = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      toast.error('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setMfaLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
+      const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+
+      // Provide a display name for the enrolled factor
+      await multiFactor(user).enroll(multiFactorAssertion, phoneNumber);
+
+      toast.success('Two-factor authentication enabled successfully!');
+
+      // Refresh enrolled factors
+      const enrolledMfaFactors = multiFactor(user).enrolledFactors;
+      setEnrolledFactors(enrolledMfaFactors);
+      setMfaEnabled(enrolledMfaFactors.length > 0);
+
+      // Reset form
+      setShowMfaEnrollment(false);
+      setPhoneNumber('');
+      setVerificationCode('');
+      setVerificationId('');
+      setShowVerificationInput(false);
+    } catch (error) {
+      console.error('Error completing MFA enrollment:', error);
+
+      // Provide specific error messages
+      if (error.code === 'auth/invalid-verification-code') {
+        toast.error('Invalid verification code. Please check and try again.');
+      } else if (error.code === 'auth/code-expired') {
+        toast.error('Verification code expired. Please request a new code.');
+      } else if (error.code === 'auth/session-expired') {
+        toast.error('Session expired. Please start the enrollment process again.');
+      } else {
+        toast.error(error.message || 'Failed to verify code');
+      }
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  // MFA Unenrollment: Remove a factor
+  const handleUnenrollMfa = async () => {
+    const { factorUid } = disableMfaModal;
+    setMfaLoading(true);
+    setDisableMfaModal({ isOpen: false, factorUid: null });
+
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      const mfaUser = multiFactor(user);
+      const factor = mfaUser.enrolledFactors.find(f => f.uid === factorUid);
+
+      if (factor) {
+        await mfaUser.unenroll(factor);
+        toast.success('Two-factor authentication disabled');
+
+        // Refresh enrolled factors
+        const enrolledMfaFactors = multiFactor(user).enrolledFactors;
+        setEnrolledFactors(enrolledMfaFactors);
+        setMfaEnabled(enrolledMfaFactors.length > 0);
+      }
+    } catch (error) {
+      console.error('Error unenrolling MFA:', error);
+      toast.error(error.message || 'Failed to disable 2FA');
+    } finally {
+      setMfaLoading(false);
+    }
+  };
 
   const loadSubMasters = async () => {
     try {
@@ -784,6 +1035,223 @@ export default function AccountSettings() {
                     </div>
                   </form>
                 )}
+
+                {/* Multi-Factor Authentication Section */}
+                <div className="mt-10 pt-10 border-t-2 border-gray-200">
+                  <div className="mb-6 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                      <Smartphone className="text-white" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">Two-Factor Authentication (2FA)</h3>
+                      <p className="text-sm text-gray-600">Add an extra layer of security to your account</p>
+                    </div>
+                  </div>
+
+                  {/* Check if user is on free plan */}
+                  {(!currentUser?.userData?.plan || currentUser?.userData?.plan === 'free' || currentUser?.userData?.plan === 'Free') ? (
+                    <div className="p-6 bg-gradient-to-r from-orange-50 to-orange-100 border-2 border-orange-200 rounded-2xl shadow-lg">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                          <Shield className="text-white" size={24} />
+                        </div>
+                        <div>
+                          <p className="text-orange-900 font-bold text-lg mb-2">Upgrade to Enable 2FA</p>
+                          <p className="text-orange-800 font-medium mb-4">
+                            Two-factor authentication is available on Starter, Professional, and Enterprise plans.
+                          </p>
+                          <button
+                            onClick={() => navigate('/pricing')}
+                            className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg font-semibold transition-all hover:scale-105 shadow-lg"
+                          >
+                            View Plans
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* MFA Status Card */}
+                      <div className={`p-6 rounded-2xl border-2 shadow-lg ${
+                        mfaEnabled
+                          ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-200'
+                          : 'bg-gradient-to-r from-gray-50 to-gray-100 border-gray-200'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md ${
+                              mfaEnabled
+                                ? 'bg-gradient-to-br from-green-500 to-green-600'
+                                : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                            }`}>
+                              <Shield className="text-white" size={24} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-lg text-gray-900 mb-1">
+                                {mfaEnabled ? '2FA Enabled' : '2FA Disabled'}
+                              </p>
+                              <p className="text-sm text-gray-700 font-medium">
+                                {mfaEnabled
+                                  ? 'Your account is protected with two-factor authentication'
+                                  : 'Add an extra layer of security to your account'}
+                              </p>
+                              {mfaEnabled && enrolledFactors.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  {enrolledFactors.map((factor, index) => (
+                                    <div key={index} className="flex items-center gap-2 text-sm">
+                                      <Smartphone size={16} className="text-green-600" />
+                                      <span className="font-medium text-gray-700">
+                                        {factor.displayName || `Phone ending in ${factor.phoneNumber?.slice(-4)}`}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setShowMfaEnrollment(!showMfaEnrollment)}
+                            disabled={mfaLoading}
+                            className={`px-6 py-2.5 rounded-lg font-semibold transition-all hover:scale-105 shadow-lg ${
+                              mfaEnabled || showMfaEnrollment
+                                ? 'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white'
+                                : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white'
+                            } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100`}
+                          >
+                            {mfaLoading ? 'Processing...' : (mfaEnabled ? 'Manage 2FA' : (showMfaEnrollment ? 'Cancel' : 'Enable 2FA'))}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* MFA Enrollment Form */}
+                      {showMfaEnrollment && !mfaEnabled && (
+                        <div className="p-6 bg-white border-2 border-blue-200 rounded-2xl shadow-lg">
+                          <h4 className="font-bold text-lg text-gray-900 mb-4">Enable Two-Factor Authentication</h4>
+
+                          {!showVerificationInput ? (
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Phone Number (with country code)
+                                </label>
+                                <input
+                                  type="tel"
+                                  value={phoneNumber}
+                                  onChange={(e) => setPhoneNumber(e.target.value)}
+                                  placeholder="+27821234567"
+                                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                />
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Enter your phone number with country code (e.g., +27 for South Africa)
+                                </p>
+                              </div>
+                              <button
+                                onClick={handleStartMfaEnrollment}
+                                disabled={mfaLoading || !phoneNumber}
+                                className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-semibold transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                              >
+                                {mfaLoading ? 'Sending...' : 'Send Verification Code'}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="text-sm text-green-800 font-medium">
+                                  Verification code sent to {phoneNumber}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Verification Code
+                                </label>
+                                <input
+                                  type="text"
+                                  value={verificationCode}
+                                  onChange={(e) => setVerificationCode(e.target.value)}
+                                  placeholder="123456"
+                                  maxLength={6}
+                                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-center text-2xl tracking-widest"
+                                />
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Enter the 6-digit code sent to your phone
+                                </p>
+                              </div>
+                              <div className="flex gap-3">
+                                <button
+                                  onClick={() => {
+                                    setShowVerificationInput(false);
+                                    setVerificationCode('');
+                                  }}
+                                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+                                >
+                                  Back
+                                </button>
+                                <button
+                                  onClick={handleCompleteMfaEnrollment}
+                                  disabled={mfaLoading || verificationCode.length !== 6}
+                                  className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-semibold transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                >
+                                  {mfaLoading ? 'Verifying...' : 'Verify & Enable'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Invisible reCAPTCHA container */}
+                          <div id="recaptcha-container"></div>
+                        </div>
+                      )}
+
+                      {/* Manage Enrolled Factors */}
+                      {mfaEnabled && showMfaEnrollment && (
+                        <div className="p-6 bg-white border-2 border-green-200 rounded-2xl shadow-lg">
+                          <h4 className="font-bold text-lg text-gray-900 mb-4">Manage Two-Factor Authentication</h4>
+
+                          <div className="space-y-3">
+                            {enrolledFactors.map((factor, index) => (
+                              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <Smartphone size={20} className="text-green-600" />
+                                  <div>
+                                    <p className="font-medium text-gray-900">
+                                      {factor.displayName || 'Phone Number'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Enrolled on {factor.enrollmentTime ? new Date(factor.enrollmentTime).toLocaleDateString() : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => setDisableMfaModal({ isOpen: true, factorUid: factor.uid })}
+                                  disabled={mfaLoading}
+                                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Information Box */}
+                      <div className="p-5 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
+                          <div className="text-sm text-blue-900">
+                            <p className="font-bold mb-1">About Two-Factor Authentication</p>
+                            <ul className="list-disc list-inside space-y-1 text-blue-800">
+                              <li>Requires your phone number for SMS verification</li>
+                              <li>You'll need to enter a code sent to your phone when signing in</li>
+                              <li>Significantly increases your account security</li>
+                              <li>Available on all paid plans</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1024,6 +1492,20 @@ export default function AccountSettings() {
         confirmText={toggleModal.isActive ? 'Disable' : 'Enable'}
         type={toggleModal.isActive ? 'warning' : 'success'}
         icon={Power}
+      />
+
+      {/* Disable MFA Confirmation */}
+      <ConfirmDialog
+        isOpen={disableMfaModal.isOpen}
+        onClose={() => setDisableMfaModal({ isOpen: false, factorUid: null })}
+        onConfirm={handleUnenrollMfa}
+        title="Disable Two-Factor Authentication"
+        message="Are you sure you want to disable two-factor authentication? Your account will be less secure without it."
+        confirmText="Disable 2FA"
+        cancelText="Keep 2FA"
+        type="danger"
+        icon={Shield}
+        confirmLoading={mfaLoading}
       />
 
       {/* Cancel Subscription Confirmation */}

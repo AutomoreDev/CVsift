@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Eye, EyeOff, Smartphone } from 'lucide-react';
+import { PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, getMultiFactorResolver } from 'firebase/auth';
+import { auth } from '../js/firebase-config';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export default function SignIn() {
   const [formData, setFormData] = useState({
@@ -11,9 +14,58 @@ export default function SignIn() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // MFA state
+  const [showMfaVerification, setShowMfaVerification] = useState(false);
+  const [mfaResolver, setMfaResolver] = useState(null);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [verificationId, setVerificationId] = useState('');
+
+  // Use ref for recaptchaVerifier to avoid async state update issues
+  const recaptchaVerifierRef = useRef(null);
 
   const { signin, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
+
+  // Initialize reCAPTCHA when MFA verification is shown
+  useEffect(() => {
+    if (showMfaVerification && !recaptchaVerifierRef.current) {
+      // Wait for DOM to be ready
+      setTimeout(() => {
+        try {
+          const container = document.getElementById('mfa-recaptcha-container');
+          if (!container) return;
+
+          container.innerHTML = '';
+
+          const verifier = new RecaptchaVerifier(auth, 'mfa-recaptcha-container', {
+            size: 'invisible'
+          });
+
+          verifier.render().then(() => {
+            recaptchaVerifierRef.current = verifier;
+          }).catch((error) => {
+            console.error('Error rendering reCAPTCHA:', error);
+          });
+        } catch (error) {
+          console.error('Error initializing reCAPTCHA:', error);
+        }
+      }, 100);
+    }
+
+    return () => {
+      if (recaptchaVerifierRef.current && !showMfaVerification) {
+        try {
+          recaptchaVerifierRef.current.clear();
+          recaptchaVerifierRef.current = null;
+        } catch (error) {
+          console.error('Error clearing reCAPTCHA:', error);
+        }
+      }
+    };
+  }, [showMfaVerification]);
 
   const handleChange = (e) => {
     setFormData({
@@ -44,26 +96,43 @@ export default function SignIn() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setLoading(true);
     setErrors({});
 
     try {
-      await signin(formData.email, formData.password);
+      await signin(formData.email.trim(), formData.password);
       navigate('/dashboard');
     } catch (error) {
+      // Handle MFA required error
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        setShowMfaVerification(true);
+        setLoading(false);
+
+        // Send SMS code automatically
+        setTimeout(() => {
+          handleSendMfaCode(resolver);
+        }, 500);
+        return;
+      }
+
       let errorMessage = 'Failed to sign in. Please try again.';
-      
+
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         errorMessage = 'Invalid email or password';
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed attempts. Please try again later.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. If you recently enabled MFA, please reset your password.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-      
+
       setErrors({ submit: errorMessage });
-    } finally {
       setLoading(false);
     }
   };
@@ -76,11 +145,91 @@ export default function SignIn() {
       await signInWithGoogle();
       navigate('/dashboard');
     } catch (error) {
+      // Handle MFA required error for Google Sign-In
+      if (error.code === 'auth/multi-factor-auth-required') {
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+        setShowMfaVerification(true);
+        setGoogleLoading(false);
+
+        // Send SMS code automatically
+        setTimeout(() => {
+          handleSendMfaCode(resolver);
+        }, 500);
+        return;
+      }
+
       setErrors({
         submit: error.message || 'Failed to sign in with Google. Please try again.'
       });
-    } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  // MFA: Send SMS verification code
+  const handleSendMfaCode = async (resolver) => {
+    if (!recaptchaVerifierRef.current) {
+      setTimeout(() => handleSendMfaCode(resolver), 500);
+      return;
+    }
+
+    setMfaLoading(true);
+    try {
+      const phoneInfoOptions = {
+        multiFactorHint: resolver.hints[0],
+        session: resolver.session
+      };
+
+      const phoneAuthProvider = new PhoneAuthProvider(auth);
+      const verId = await phoneAuthProvider.verifyPhoneNumber(phoneInfoOptions, recaptchaVerifierRef.current);
+
+      setVerificationId(verId);
+
+      // Log SMS verification for tracking
+      try {
+        const functions = getFunctions();
+        const logSms = httpsCallable(functions, 'logSmsVerification');
+        const phoneNumber = resolver.hints[0]?.phoneNumber || 'unknown';
+        await logSms({
+          phoneNumber: phoneNumber,
+          purpose: 'mfa_signin'
+        });
+      } catch (logError) {
+        console.error('Failed to log SMS verification:', logError);
+        // Don't block the flow if logging fails
+      }
+    } catch (error) {
+      setErrors({ submit: `Failed to send verification code: ${error.message}` });
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  // MFA: Verify code and complete sign-in
+  const handleVerifyMfaCode = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      setErrors({ submit: 'Please enter a valid 6-digit code' });
+      return;
+    }
+
+    setMfaLoading(true);
+    setErrors({});
+
+    try {
+      const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
+      const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+      await mfaResolver.resolveSignIn(multiFactorAssertion);
+      navigate('/dashboard');
+    } catch (error) {
+      if (error.code === 'auth/invalid-verification-code') {
+        setErrors({ submit: 'Invalid verification code. Please try again.' });
+      } else if (error.code === 'auth/code-expired') {
+        setErrors({ submit: 'Verification code expired. Please request a new code.' });
+      } else {
+        setErrors({ submit: 'Failed to verify code. Please try again.' });
+      }
+    } finally {
+      setMfaLoading(false);
     }
   };
 
@@ -97,19 +246,21 @@ export default function SignIn() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your CVSift account</p>
-          </div>
+          {!showMfaVerification ? (
+            <>
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+                <p className="text-gray-600">Sign in to your CVSift account</p>
+              </div>
 
-          {errors.submit && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
-              <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-red-800 text-sm">{errors.submit}</p>
-            </div>
-          )}
+              {errors.submit && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                  <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+                  <p className="text-red-800 text-sm">{errors.submit}</p>
+                </div>
+              )}
 
-          <div className="space-y-5">
+              <div className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -145,16 +296,24 @@ export default function SignIn() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors ${
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors ${
                     errors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password}</p>
@@ -203,11 +362,80 @@ export default function SignIn() {
               </a>
             </p>
           </div>
+            </>
+          ) : (
+            <>
+              {/* MFA Verification Form */}
+              <div className="mb-8">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                    <Smartphone className="text-orange-500" size={32} />
+                  </div>
+                </div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">Two-Factor Authentication</h1>
+                <p className="text-gray-600 text-center">Enter the 6-digit code sent to your phone</p>
+              </div>
+
+              {errors.submit && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-3">
+                  <AlertCircle className="text-red-500 flex-shrink-0 mt-0.5" size={20} />
+                  <p className="text-red-800 text-sm">{errors.submit}</p>
+                </div>
+              )}
+
+              <div className="space-y-5">
+                <div>
+                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-2 text-center">
+                    Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    id="verificationCode"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    maxLength={6}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-center text-2xl tracking-widest"
+                  />
+                  <p className="mt-2 text-sm text-gray-500 text-center">
+                    Enter the 6-digit code sent to your phone
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleVerifyMfaCode}
+                  disabled={mfaLoading || verificationCode.length !== 6}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg font-semibold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {mfaLoading ? 'Verifying...' : 'Verify & Sign In'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMfaVerification(false);
+                    setVerificationCode('');
+                    setErrors({});
+                  }}
+                  disabled={mfaLoading}
+                  className="w-full text-gray-600 hover:text-gray-900 py-3 font-medium transition-colors disabled:opacity-50"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+
+              <div id="mfa-recaptcha-container"></div>
+            </>
+          )}
         </div>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Protected by enterprise-grade security
-        </p>
+        <div className="text-center text-sm text-gray-500 mt-6 space-y-2">
+          <p>Protected by enterprise-grade security</p>
+          <div className="flex items-center justify-center space-x-4">
+            <a href="/privacy-policy" className="hover:text-orange-500 transition-colors">Privacy Policy</a>
+            <span>•</span>
+            <a href="/terms-of-service" className="hover:text-orange-500 transition-colors">Terms of Service</a>
+          </div>
+        </div>
       </div>
     </div>
   );

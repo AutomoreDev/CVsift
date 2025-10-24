@@ -22,6 +22,9 @@ const masterAccount = require("./masterAccount");
 // Import Sub-Master Manager functions
 const subMasterManager = require("./subMasterManager");
 
+// Import Master Account Usage functions
+const masterAccountUsage = require("./masterAccountUsage");
+
 // Import Chatbot functions
 const chatbot = require("./chatbot");
 
@@ -36,6 +39,9 @@ const activityLogs = require("./activityLogs");
 
 // Import Job Specs functions
 const jobSpecs = require("./jobSpecs");
+
+// Import SMS Tracking functions
+const smsTracking = require("./smsTracking");
 
 // Export PayFast functions
 exports.createPayment = payfast.createPayment;
@@ -70,6 +76,10 @@ exports.toggleSubMasterStatus = subMasterManager.toggleSubMasterStatus;
 exports.deleteSubMaster = subMasterManager.deleteSubMaster;
 exports.checkPrimaryMaster = subMasterManager.checkPrimaryMaster;
 
+// Export Master Account Usage functions
+exports.getSubMasterUsage = masterAccountUsage.getSubMasterUsage;
+exports.getSubMasterDetailedUsage = masterAccountUsage.getSubMasterDetailedUsage;
+
 // Export Chatbot functions
 exports.chatWithAssistant = chatbot.chatWithAssistant;
 
@@ -96,3 +106,7 @@ exports.logJobSpecDelete = activityLogs.logJobSpecDelete;
 // Export Job Specs functions
 exports.getTeamJobSpecs = jobSpecs.getTeamJobSpecs;
 exports.deleteJobSpec = jobSpecs.deleteJobSpec;
+
+// Export SMS Tracking functions
+exports.logSmsVerification = smsTracking.logSmsVerification;
+exports.getUserSmsUsage = smsTracking.getUserSmsUsage;

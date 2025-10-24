@@ -476,6 +476,15 @@ export default function Pricing() {
                     <td className="px-6 py-4 text-center"><Check size={18} className="mx-auto text-orange-500" /></td>
                   </tr>
                   <tr>
+                    <td className="px-6 py-4 text-sm text-gray-700">Ads displayed</td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-600">Minimal ads</td>
+                    <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-green-500" /></td>
+                    <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-green-500" /></td>
+                    <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-green-500" /></td>
+                    <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-green-500" /></td>
+                    <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-green-500" /></td>
+                  </tr>
+                  <tr>
                     <td className="px-6 py-4 text-sm text-gray-700">API access</td>
                     <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-gray-300" /></td>
                     <td className="px-6 py-4 text-center"><X size={18} className="mx-auto text-gray-300" /></td>

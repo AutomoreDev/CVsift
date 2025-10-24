@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2025-10-24",
+  "releaseName": "Foundation Release",
+  "features": [
+    "Advanced CV matching algorithm with semantic understanding",
+    "Multi-industry skill normalization (Tech, Finance, Healthcare, Arts, Construction, etc.)",
+    "Career progression analysis",
+    "Industry alignment scoring",
+    "Over-qualification detection",
+    "Team collaboration features",
+    "Master account management",
+    "PayFast payment integration",
+    "Activity logging and analytics",
+    "SMS tracking",
+    "AI-powered CV parsing with Claude",
+    "Chatbot assistant"
+  ],
+  "changelog": {
+    "1.0.0": {
+      "date": "2025-10-24",
+      "type": "major",
+      "changes": [
+        "Initial production release",
+        "Complete CV matching system with advanced algorithms",
+        "Multi-industry support",
+        "Team collaboration features",
+        "Payment and subscription management",
+        "Analytics and reporting",
+        "Established V2 R&D framework for future enhancements"
+      ]
+    }
+  }
+}

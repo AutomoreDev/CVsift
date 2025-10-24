@@ -20,6 +20,11 @@ import AccountSettings from './Pages/AccountSettings';
 import JobSpecs from './Pages/JobSpecs';
 import Chatbot from './Pages/Chatbot';
 import AcceptInvite from './Pages/AcceptInvite';
+import MasterAccountDashboard from './Pages/MasterAccountDashboard';
+import TermsOfService from './Pages/TermsOfService';
+import PrivacyPolicy from './Pages/PrivacyPolicy';
+import AboutUs from './Pages/AboutUs';
+import Contact from './Pages/Contact';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -75,6 +80,12 @@ function AppRoutes() {
 
       {/* Accept Team Invitation (Public - no auth required initially) */}
       <Route path="/accept-invite" element={<AcceptInvite />} />
+
+      {/* Legal & Info Pages */}
+      <Route path="/terms-of-service" element={<TermsOfService />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/about" element={<AboutUs />} />
+      <Route path="/contact" element={<Contact />} />
 
       {/* Protected Routes */}
       <Route 
@@ -162,6 +173,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Chatbot />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/master-dashboard"
+        element={
+          <ProtectedRoute>
+            <MasterAccountDashboard />
           </ProtectedRoute>
         }
       />
