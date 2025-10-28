@@ -22,6 +22,7 @@ JSON Structure (return exactly this format):
   "email": "Email address (check headers, footers, contact sections)",
   "phone": "Phone number with country code if present",
   "location": "City, Province/State, Country (extract full location)",
+  "linkedin": "LinkedIn profile URL (if present, otherwise null)",
   "gender": "male|female|non-binary|other|null",
   "age": 25,
   "race": "african|coloured|indian|white|asian|other|null",
@@ -61,6 +62,11 @@ Contact Information (NORMALIZE ALL):
   * If phone starts with 0, add +27 (South Africa default)
   * Examples: "0767909139" → "+27767909139"
   * Examples: "(021) 555-1234" → "+27215551234"
+- linkedin: Extract LinkedIn profile URL if present
+  * Look for: "linkedin.com/in/...", "LinkedIn:", social media links
+  * Accept formats: "https://linkedin.com/in/username", "linkedin.com/in/username", "/in/username"
+  * If found, normalize to full URL: "https://www.linkedin.com/in/username"
+  * If not found, return null
 - location: Normalize to standard names with full spelling
   * Country codes: "SA" → "South Africa", "USA"/"US" → "United States"
   * City codes: "CPT" → "Cape Town", "JHB" → "Johannesburg"

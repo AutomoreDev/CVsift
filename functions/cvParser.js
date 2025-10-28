@@ -7,6 +7,7 @@ const AdmZip = require("adm-zip");
 const xml2js = require("xml2js");
 const {CV_PARSER_PROMPT} = require("./cvParserPrompts");
 const {logCVUpload, logCVDelete, logCVUpdate} = require("./activityLogs");
+const {logApiCall} = require("./apiLogger");
 
 /**
  * Get team CVs for team members
@@ -50,6 +51,9 @@ exports.getTeamCVs = onCall(async (request) => {
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Log API call for billing
+    await logApiCall(userId, "getTeamCVs", "GET_TEAM_CVS");
 
     return {
       success: true,
@@ -121,6 +125,9 @@ exports.getTeamCV = onCall(async (request) => {
           "CV does not belong to your team owner",
       );
     }
+
+    // Log API call for billing
+    await logApiCall(userId, "getTeamCV", "GET_TEAM_CV");
 
     return {
       success: true,
@@ -258,99 +265,15 @@ exports.parseCVWithClaude = onDocumentCreated("cvs/{cvId}",
       const cvData = snap.data();
       const cvId = event.params.cvId;
 
-      console.log(`Starting CV parsing for document: ${cvId}`);
-
       try {
-      // Check if already parsed
+        // Check if already parsed
         if (cvData.parsed) {
           console.log(`CV ${cvId} already parsed, skipping`);
           return null;
         }
 
-        // Get the file from Storage
-        const bucket = admin.storage().bucket();
-        const file = bucket.file(cvData.storagePath);
-
-        // Download file
-        const [fileBuffer] = await file.download();
-        console.log(`Downloaded file: ${cvData.fileName}`);
-
-        // Extract text from PDF/DOC/PAGES
-        let cvText = "";
-        if (cvData.fileType === "application/pdf") {
-          const pdfData = await pdfParse(fileBuffer);
-          cvText = pdfData.text;
-        } else if (cvData.fileType === "application/vnd.apple.pages" ||
-                   cvData.fileType === "application/x-iwork-pages-sffpages" ||
-                   cvData.fileName.toLowerCase().endsWith(".pages")) {
-          // Extract text from Pages file
-          cvText = await extractTextFromPages(fileBuffer);
-        } else {
-        // For Word documents, convert buffer to text (basic extraction)
-          cvText = fileBuffer.toString("utf8");
-        }
-
-        console.log(`Extracted text length: ${cvText.length} characters`);
-
-        // Initialize Claude AI
-        const anthropic = new Anthropic({
-          apiKey: process.env.ANTHROPIC_API_KEY,
-        });
-
-        // Parse CV with Claude using enhanced prompt
-        const message = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 2048,
-          messages: [
-            {
-              role: "user",
-              content: `${CV_PARSER_PROMPT}
-
-CV Text:
-${cvText.substring(0, 15000)}`,
-            },
-          ],
-        });
-
-        // Parse Claude's response
-        let parsedData;
-        try {
-          const responseText = message.content[0].text;
-          // Remove markdown code blocks if present
-          const jsonText = responseText
-              .replace(/```json\n?/g, "")
-              .replace(/```\n?/g, "")
-              .trim();
-          parsedData = JSON.parse(jsonText);
-        } catch (parseError) {
-          console.error("Error parsing Claude response:", parseError);
-          console.log("Raw response:", message.content[0].text);
-          throw new Error("Failed to parse Claude response as JSON");
-        }
-
-        console.log("Parsed CV data:", parsedData);
-
-        // Update Firestore document
-        await snap.ref.update({
-          metadata: {
-            name: parsedData.name || null,
-            email: parsedData.email || null,
-            phone: parsedData.phone || null,
-            location: parsedData.location || null,
-            gender: parsedData.gender || null,
-            age: parsedData.age || null,
-            race: parsedData.race || null,
-            skills: parsedData.skills || [],
-            experience: parsedData.experience || [],
-            education: parsedData.education || [],
-            summary: parsedData.summary || null,
-          },
-          parsed: true,
-          status: "completed",
-          parsedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        console.log(`Successfully parsed CV ${cvId}`);
+        // Use shared parsing logic with plan-based model selection
+        await parseCV(cvId, cvData);
 
         // Log CV upload activity
         try {
@@ -371,18 +294,130 @@ ${cvText.substring(0, 15000)}`,
 
         return null;
       } catch (error) {
-        console.error(`Error parsing CV ${cvId}:`, error);
+        console.error(`Error in parseCVWithClaude trigger for ${cvId}:`, error);
+
+        // Check for specific error types for better error messages
+        let errorMessage = error.message;
+        if (error.message.includes("Pages format")) {
+          errorMessage = `Pages format error: ${error.message}. Please export your Pages document as PDF and try again.`;
+        } else if (error.message.includes("not recognized")) {
+          errorMessage = "File format not recognized. Please upload a PDF, Word document, or export Pages as PDF.";
+        }
 
         // Update document with error status
         await snap.ref.update({
           status: "error",
-          errorMessage: error.message,
+          errorMessage: errorMessage,
           parsedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+
+        // Log failed API call (still counts for billing)
+        await logApiCall(cvData.userId, "parseCVWithClaude", "CV_PARSE_FAILED");
 
         return null;
       }
     });
+
+/**
+ * Shared parsing logic that can be called by both trigger and retry
+ */
+async function parseCV(cvId, cvData) {
+  try {
+    console.log(`Starting CV parsing for document: ${cvId}`);
+
+    // Get the file from Storage
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(cvData.storagePath);
+
+    // Download file
+    const [fileBuffer] = await file.download();
+    console.log(`Downloaded file: ${cvData.fileName}`);
+
+    // Extract text from PDF/DOC/PAGES
+    let cvText = "";
+    if (cvData.fileType === "application/pdf") {
+      const pdfData = await pdfParse(fileBuffer);
+      cvText = pdfData.text;
+    } else if (cvData.fileType === "application/vnd.apple.pages" ||
+               cvData.fileType === "application/x-iwork-pages-sffpages" ||
+               cvData.fileName.toLowerCase().endsWith(".pages")) {
+      // Extract text from Pages file
+      cvText = await extractTextFromPages(fileBuffer);
+    } else {
+      // For Word documents, convert buffer to text (basic extraction)
+      cvText = fileBuffer.toString("utf8");
+    }
+
+    console.log(`Extracted text length: ${cvText.length} characters`);
+
+    // Get user plan to determine which model to use
+    const userDoc = await admin.firestore().collection("users").doc(cvData.userId).get();
+    const userPlan = userDoc.exists ? userDoc.data().plan : "free";
+
+    // Select model based on plan
+    // Free, Starter, Basic -> Haiku 4.5 ($1/$5 - 3x cheaper)
+    // Professional, Business, Enterprise -> Sonnet 4.5 ($3/$15 - more powerful)
+    const isPremiumPlan = ["professional", "business", "enterprise"].includes(userPlan?.toLowerCase());
+    const model = isPremiumPlan ? "claude-sonnet-4-5-20250929" : "claude-haiku-4-5";
+
+    // Initialize Claude AI
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
+    // Parse CV with Claude using enhanced prompt
+    const message = await anthropic.messages.create({
+      model: model,
+      max_tokens: 2048,
+      messages: [
+        {
+          role: "user",
+          content: `${CV_PARSER_PROMPT}
+
+CV Text:
+${cvText.substring(0, 15000)}`,
+        },
+      ],
+    });
+
+    const parsedContent = message.content[0].text;
+    console.log("Claude response:", parsedContent);
+
+    // Parse JSON from Claude's response
+    const jsonMatch = parsedContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Could not extract JSON from Claude response");
+    }
+
+    const parsedData = JSON.parse(jsonMatch[0]);
+
+    // Update Firestore with parsed data
+    await admin.firestore().collection("cvs").doc(cvId).update({
+      metadata: parsedData,
+      parsed: true,
+      status: "completed",
+      parsedAt: admin.firestore.FieldValue.serverTimestamp(),
+      errorMessage: admin.firestore.FieldValue.delete(),
+    });
+
+    // Log successful API call
+    await logApiCall(cvData.userId, "parseCVWithClaude", "CV_PARSE");
+
+    console.log(`Successfully parsed CV: ${cvId}`);
+    return {success: true};
+  } catch (error) {
+    console.error(`Error parsing CV ${cvId}:`, error);
+
+    // Update status to error
+    await admin.firestore().collection("cvs").doc(cvId).update({
+      status: "error",
+      errorMessage: error.message || "Failed to parse CV",
+      parsed: false,
+    });
+
+    throw error;
+  }
+}
 
 /**
  * Manually trigger CV parsing for a specific document
@@ -430,7 +465,13 @@ exports.retryParsing = onCall(async (request) => {
       errorMessage: admin.firestore.FieldValue.delete(),
     });
 
-    return {success: true, message: "CV reprocessing initiated"};
+    // Actually parse the CV
+    await parseCV(cvId, cvData);
+
+    // Log API call for billing
+    await logApiCall(request.auth.uid, "retryParsing", "RETRY_PARSING");
+
+    return {success: true, message: "CV reprocessed successfully"};
   } catch (error) {
     console.error("Error triggering retry:", error);
     throw new HttpsError("internal", error.message);
@@ -497,6 +538,9 @@ exports.deleteCV = onCall(async (request) => {
 
     // Delete from Firestore
     await cvRef.delete();
+
+    // Log API call for billing
+    await logApiCall(userId, "deleteCV", "DELETE_CV");
 
     // Log deletion activity
     try {
@@ -579,6 +623,9 @@ exports.updateCVFields = onCall(async (request) => {
       customFields: customFields,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Log API call for billing
+    await logApiCall(userId, "updateCVFields", "UPDATE_CV_FIELDS");
 
     // Log update activity
     try {

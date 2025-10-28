@@ -6,7 +6,6 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../js/firebase-config';
 import { Upload, BarChart3, LogOut, Settings, FileText, TrendingUp, Clock, CheckCircle, AlertCircle, ChevronDown, Briefcase, MessageCircle, FileSearch, Package } from 'lucide-react';
 import { canAccessChatbot } from '../config/planConfig';
-import { HorizontalBannerAd } from '../components/AdSenseAd';
 import VersionBadge from '../components/VersionBadge';
 
 export default function Dashboard() {
@@ -154,7 +153,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
+      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -473,9 +472,6 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-
-        {/* AdSense Ad - Only for Free users */}
-        <HorizontalBannerAd className="max-w-5xl mx-auto" />
 
         {/* Upgrade Prompt - Only for Free/Basic users */}
         {!isPremium && (

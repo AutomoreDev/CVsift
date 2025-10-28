@@ -8,6 +8,7 @@ import { Briefcase, Plus, Edit2, Trash2, MapPin, Calendar, Users, Award, Code, G
 import { canCreateJobSpecs, getJobSpecLimit } from '../config/planConfig';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
+import { trackJobSpecCreate, trackJobSpecUpdate, trackJobSpecDelete, trackError } from '../utils/analytics';
 
 /**
  * Custom Select Dropdown Component
@@ -253,12 +254,18 @@ export default function JobSpecs() {
       if (result.data.success) {
         setJobSpecs(jobSpecs.filter(spec => spec.id !== deleteModal.specId));
         toast.success('Job specification deleted successfully');
+
+        // Track job spec deletion
+        trackJobSpecDelete();
       } else {
         throw new Error(result.data.message || 'Failed to delete job specification');
       }
     } catch (error) {
       console.error('Error deleting job spec:', error);
       toast.error('Failed to delete job specification');
+
+      // Track deletion error
+      trackError('job_spec_delete_failed', error.message, 'JobSpecs');
     } finally {
       setDeleting(false);
       setDeleteModal({ isOpen: false, specId: null });
@@ -319,6 +326,13 @@ export default function JobSpecs() {
         await updateDoc(doc(db, 'jobSpecs', editingSpec.id), specData);
         toast.success('Job specification updated successfully');
 
+        // Track job spec update
+        trackJobSpecUpdate(
+          specData.requiredSkills.length,
+          specData.minExperience || 0,
+          specData.maxExperience || 0
+        );
+
         // Log activity for job spec update
         try {
           const functions = getFunctions();
@@ -337,6 +351,13 @@ export default function JobSpecs() {
         specData.createdAt = new Date().toISOString();
         const docRef = await addDoc(collection(db, 'jobSpecs'), specData);
         toast.success('Job specification created successfully');
+
+        // Track job spec creation
+        trackJobSpecCreate(
+          specData.requiredSkills.length,
+          specData.minExperience || 0,
+          specData.maxExperience || 0
+        );
 
         // Log activity for job spec creation
         try {
@@ -359,6 +380,9 @@ export default function JobSpecs() {
     } catch (error) {
       console.error('Error saving job spec:', error);
       toast.error('Failed to save job specification: ' + error.message);
+
+      // Track save error
+      trackError('job_spec_save_failed', error.message, 'JobSpecs');
     }
   };
 

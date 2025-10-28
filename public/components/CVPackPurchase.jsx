@@ -4,11 +4,14 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../js/firebase-config';
 import { getCVPacks } from '../config/planConfig';
 import { Package, CheckCircle2, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import useCurrency from '../hooks/useCurrency';
+import { CompactCurrencySelector } from './CurrencySelector';
 
 export default function CVPackPurchase() {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(null);
   const [error, setError] = useState(null);
+  const { convertAndFormat, convertPrice, formatPrice, currency, loading: currencyLoading } = useCurrency();
 
   const cvPacks = getCVPacks();
   const cvPackBalance = currentUser?.userData?.cvPackBalance || 0;
@@ -58,14 +61,15 @@ export default function CVPackPurchase() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
+      <div className="mb-6 flex items-center gap-3 flex-wrap">
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
           <Package className="text-white" size={20} />
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-[200px]">
           <h2 className="text-2xl font-bold text-gray-900">CV Packs</h2>
           <p className="text-sm text-gray-600">Purchase extra CVs to supplement your monthly plan</p>
         </div>
+        <CompactCurrencySelector />
       </div>
 
       {/* Current Balance */}
@@ -153,15 +157,18 @@ export default function CVPackPurchase() {
 
             <div className="text-center mb-4">
               <div className="flex items-baseline justify-center mb-1">
-                <span className="text-sm text-gray-500 mr-1">ZAR</span>
-                <span className="text-3xl font-bold text-gray-900">{pack.price}</span>
+                <span className="text-3xl font-bold text-gray-900">
+                  {currencyLoading ? 'Loading...' : convertAndFormat(pack.price)}
+                </span>
               </div>
               {pack.savings && (
                 <p className="text-xs font-semibold text-green-600">{pack.savings}</p>
               )}
-              <p className="text-xs text-gray-500 mt-1">
-                R{(pack.price / pack.cvCount).toFixed(2)} per CV
-              </p>
+              {!currencyLoading && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {formatPrice(convertPrice(pack.price) / pack.cvCount, currency)} per CV
+                </p>
+              )}
             </div>
 
             <button

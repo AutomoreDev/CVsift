@@ -5,6 +5,7 @@ import { Mail, Lock, AlertCircle, Eye, EyeOff, Smartphone } from 'lucide-react';
 import { PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, getMultiFactorResolver } from 'firebase/auth';
 import { auth } from '../js/firebase-config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { trackLogin, trackError } from '../utils/analytics';
 
 export default function SignIn() {
   const [formData, setFormData] = useState({
@@ -104,8 +105,14 @@ export default function SignIn() {
 
     try {
       await signin(formData.email.trim(), formData.password);
+
+      // Track successful login
+      trackLogin('email');
+
       navigate('/dashboard');
     } catch (error) {
+      // Track login error
+      trackError('login_failed', error.message, 'SignIn');
       // Handle MFA required error
       if (error.code === 'auth/multi-factor-auth-required') {
         const resolver = getMultiFactorResolver(auth, error);
@@ -143,8 +150,14 @@ export default function SignIn() {
 
     try {
       await signInWithGoogle();
+
+      // Track successful Google login
+      trackLogin('google');
+
       navigate('/dashboard');
     } catch (error) {
+      // Track Google login error
+      trackError('login_failed', error.message, 'SignIn');
       // Handle MFA required error for Google Sign-In
       if (error.code === 'auth/multi-factor-auth-required') {
         const resolver = getMultiFactorResolver(auth, error);
@@ -185,19 +198,6 @@ export default function SignIn() {
 
       setVerificationId(verId);
 
-      // Log SMS verification for tracking
-      try {
-        const functions = getFunctions();
-        const logSms = httpsCallable(functions, 'logSmsVerification');
-        const phoneNumber = resolver.hints[0]?.phoneNumber || 'unknown';
-        await logSms({
-          phoneNumber: phoneNumber,
-          purpose: 'mfa_signin'
-        });
-      } catch (logError) {
-        console.error('Failed to log SMS verification:', logError);
-        // Don't block the flow if logging fails
-      }
     } catch (error) {
       setErrors({ submit: `Failed to send verification code: ${error.message}` });
     } finally {
@@ -219,6 +219,21 @@ export default function SignIn() {
       const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
       const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
       await mfaResolver.resolveSignIn(multiFactorAssertion);
+
+      // Log SMS verification for tracking AFTER successful authentication
+      try {
+        const functions = getFunctions();
+        const logSms = httpsCallable(functions, 'logSmsVerification');
+        const phoneNumber = mfaResolver.hints[0]?.phoneNumber || 'unknown';
+        await logSms({
+          phoneNumber: phoneNumber,
+          purpose: 'mfa_signin'
+        });
+      } catch (logError) {
+        console.error('Failed to log SMS verification:', logError);
+        // Don't block the flow if logging fails
+      }
+
       navigate('/dashboard');
     } catch (error) {
       if (error.code === 'auth/invalid-verification-code') {

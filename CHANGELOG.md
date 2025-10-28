@@ -5,6 +5,68 @@ All notable changes to CV-Sift will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-29
+
+### 🎯 Enhanced Intelligence Release
+
+This release focuses on intelligent cost optimization, enhanced CV data extraction, and improved user experience with several bug fixes.
+
+### Added
+
+#### AI Enhancements
+- **Plan-based Claude AI Model Selection**: Smart model routing based on subscription tier
+  - Free, Starter, Basic plans: Claude Haiku 4.5 ($1/$5 per million tokens - 3x cheaper)
+  - Professional, Business, Enterprise plans: Claude Sonnet 4.5 ($3/$15 per million tokens - premium quality)
+  - Result: 67% cost savings on lower tier plans while maintaining quality for premium users
+- **LinkedIn Profile Extraction**: Automatically extract LinkedIn URLs from CVs
+  - Normalizes various LinkedIn URL formats
+  - Handles partial URLs and different formats
+- **Professional Summary Extraction**: AI extracts comprehensive professional summaries from CVs
+
+#### User Interface
+- **LinkedIn Display**: Added LinkedIn profile link in Personal Information section
+  - Clickable external link with icon
+  - Opens in new tab with proper security attributes
+- **View Summary Toggle**: Replaced "Download CV" button with "View Summary" in Quick Actions
+  - Collapsible Professional Summary section
+  - Toggle button to show/hide summary
+- **Sticky Navigation Bars**: Made all navigation bars sticky for better UX
+  - Dashboard navbar
+  - CV List navbar
+  - CV Details navbar
+  - Analytics navbar (already implemented)
+
+### Fixed
+
+#### Bug Fixes
+- **Retry Parsing Button Visibility**: Fixed button showing during active CV processing
+  - Now only shows for failed or unparsed CVs (not during processing)
+  - Prevents UI layout distortion
+- **Currency Display Issues**:
+  - Fixed "Custom" text appearing for zero values in cost breakdown
+  - Fixed ZAR currency rounding (now shows R1.20 instead of R1.00)
+  - Proper handling of null/undefined vs zero values
+- **Master Account Dashboard**: Fixed missing `formatCurrency` import causing ReferenceError
+- **Submaster Creation**: Fixed "Unknown" date display for existing users converted to submasters
+  - Now properly sets `createdAt` timestamp for existing users
+- **CV Parsing Retry**: Improved retry functionality
+  - Created shared `parseCV()` function for consistency
+  - Retry button now actually re-processes the CV with Claude AI
+
+### Security
+- **Removed Debug Logging**: Removed console logs that exposed Claude model selection strategy
+  - Prevents competitors from seeing business logic
+  - Maintains competitive advantage
+
+### Performance
+- **Cost Optimization**: Achieved significant cost savings through intelligent model selection
+  - Starter plan: 97% profit margin maintained
+  - Basic plan: 92% profit margin maintained
+  - Professional plan: 70% profit margin with premium AI
+  - Business plan: 61% profit margin with premium AI
+
+---
+
 ## [1.0.0] - 2025-10-24
 
 ### 🎉 Foundation Release
@@ -111,15 +173,12 @@ This is the first production release of CV-Sift, a comprehensive CV matching and
 
 ## Future Versions
 
-### [1.1.0] - Planned
+### [1.2.0] - Planned
 - Enhanced career pattern detection (freelancer vs job-hopper)
 - Confidence scoring for match quality assessment
-- Improved CV parsing with additional file format support
-
-### [1.2.0] - Planned
+- Advanced filtering and search capabilities
 - AI qualitative analysis for shortlisted candidates
 - Bulk CV operations improvements
-- Advanced filtering and search capabilities
 
 ### [2.0.0] - Research Phase (V2 R&D)
 - Complete semantic matching system integration

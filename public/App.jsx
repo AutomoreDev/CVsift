@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/Toast';
+import { useAnalytics } from './hooks/useAnalytics';
+import CookieBanner from './components/CookieBanner';
 
 // Import Pages
 import LandingPage from './Pages/LandingPage';
@@ -25,6 +27,7 @@ import TermsOfService from './Pages/TermsOfService';
 import PrivacyPolicy from './Pages/PrivacyPolicy';
 import AboutUs from './Pages/AboutUs';
 import Contact from './Pages/Contact';
+import Blog from './Pages/Blog';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -49,6 +52,9 @@ function PublicRoute({ children }) {
 }
 
 function AppRoutes() {
+  // Enable automatic page view tracking and user tracking
+  useAnalytics();
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -86,6 +92,7 @@ function AppRoutes() {
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/about" element={<AboutUs />} />
       <Route path="/contact" element={<Contact />} />
+      <Route path="/blog" element={<Blog />} />
 
       {/* Protected Routes */}
       <Route 
@@ -196,6 +203,7 @@ export default function App() {
     <Router>
       <AuthProvider>
         <ToastProvider>
+          <CookieBanner language="en" privacyPolicyUrl="/privacy-policy" />
           <AppRoutes />
         </ToastProvider>
       </AuthProvider>

@@ -148,7 +148,7 @@ exports.getSubMasterUsage = onCall({region: "us-central1"}, async (request) => {
         subMasterId: subMasterId,
         email: subMasterData.email,
         displayName: subMasterData.displayName,
-        createdAt: subMasterData.createdAt,
+        createdAt: subMasterData.createdAt?.toDate?.()?.toISOString?.() || null,
         plan: subMasterData.plan,
         currentMonth: {
           cvUploads: cvCount,
@@ -171,7 +171,8 @@ exports.getSubMasterUsage = onCall({region: "us-central1"}, async (request) => {
           totalCvs: allTimeCvsSnapshot.size,
           totalChatbotMessages: allTimeChatbotSnapshot.size,
         },
-        lastActivity: subMasterData.lastLoginAt || subMasterData.createdAt,
+        lastActivity: (subMasterData.lastLoginAt?.toDate?.() ||
+          subMasterData.createdAt?.toDate?.())?.toISOString?.() || null,
       });
     }
 

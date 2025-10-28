@@ -5,6 +5,10 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { functions } from '../js/firebase-config';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatDate } from '../utils/dateUtils';
+import { formatCurrency } from '../utils/currency';
+import useCurrency from '../hooks/useCurrency';
+import { CompactCurrencySelector } from '../components/CurrencySelector';
 import {
   ArrowLeft,
   Users,
@@ -34,6 +38,7 @@ export default function MasterAccountDashboard() {
   const [usageData, setUsageData] = useState(null);
   const [expandedSubMaster, setExpandedSubMaster] = useState(null);
   const [detailedUsage, setDetailedUsage] = useState({});
+  const { convertAndFormat, convertPrice, formatPrice, currency, currencyInfo, loading: currencyLoading } = useCurrency();
 
   useEffect(() => {
     loadUsageData();
@@ -119,7 +124,7 @@ export default function MasterAccountDashboard() {
       sm.teamInfo.memberCount,
       sm.teamInfo.jobSpecCount,
       `R${sm.currentMonth.estimatedCost.toFixed(2)}`,
-      new Date(sm.createdAt?.seconds * 1000 || sm.createdAt).toLocaleDateString()
+      formatDate(sm.createdAt)
     ]);
 
     const csvContent = [
@@ -135,8 +140,10 @@ export default function MasterAccountDashboard() {
     a.click();
   };
 
-  const formatCurrency = (amount) => {
-    return `R${amount.toFixed(2)}`;
+  const formatCurrencyLocal = (amountZAR) => {
+    if (currencyLoading) return 'Loading...';
+    const converted = convertPrice(amountZAR);
+    return formatPrice(converted, currency);
   };
 
   const exportIndividualInvoice = (subMaster) => {
@@ -276,7 +283,7 @@ export default function MasterAccountDashboard() {
     doc.text(`Plan: Enterprise (Usage-Based Billing)`, 15, finalY + 42);
     doc.text(`Team Members: ${subMaster.teamInfo.memberCount}`, 15, finalY + 48);
     doc.text(`Job Specifications: ${subMaster.teamInfo.jobSpecCount}`, 15, finalY + 54);
-    doc.text(`Account Created: ${new Date(subMaster.createdAt?.seconds * 1000 || subMaster.createdAt).toLocaleDateString()}`, 15, finalY + 60);
+    doc.text(`Account Created: ${formatDate(subMaster.createdAt)}`, 15, finalY + 60);
 
     // Payment terms section
     doc.setFont('helvetica', 'bold');
@@ -352,7 +359,8 @@ export default function MasterAccountDashboard() {
               <h1 className="text-2xl font-bold text-gray-900">Master Account Dashboard</h1>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-wrap gap-2">
+              <CompactCurrencySelector />
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
@@ -577,7 +585,7 @@ export default function MasterAccountDashboard() {
                                     <div className="flex justify-between">
                                       <span className="text-gray-600">Created:</span>
                                       <span className="font-medium text-gray-900">
-                                        {new Date(subMaster.createdAt?.seconds * 1000 || subMaster.createdAt).toLocaleDateString()}
+                                        {formatDate(subMaster.createdAt)}
                                       </span>
                                     </div>
                                     <div className="flex justify-between">
@@ -592,33 +600,33 @@ export default function MasterAccountDashboard() {
                                   <h4 className="mb-3 text-sm font-semibold text-gray-900">Cost Breakdown</h4>
                                   <div className="space-y-2 text-sm">
                                     <div className="flex justify-between">
-                                      <span className="text-gray-600">CVs (R1.20 ):</span>
+                                      <span className="text-gray-600">CVs ({formatCurrencyLocal(1.20)}):</span>
                                       <span className="font-medium text-gray-900">
-                                        {formatCurrency(subMaster.currentMonth.cvUploads * 1.20)}
+                                        {formatCurrencyLocal(subMaster.currentMonth.cvUploads * 1.20)}
                                       </span>
                                     </div>
                                     <div className="flex justify-between">
-                                      <span className="text-gray-600">Messages (R0.35 ):</span>
+                                      <span className="text-gray-600">Messages ({formatCurrencyLocal(0.35)}):</span>
                                       <span className="font-medium text-gray-900">
-                                        {formatCurrency(subMaster.currentMonth.chatbotMessages * 0.35)}
+                                        {formatCurrencyLocal(subMaster.currentMonth.chatbotMessages * 0.35)}
                                       </span>
                                     </div>
                                     <div className="flex justify-between">
-                                      <span className="text-gray-600">API (R0.10 ):</span>
+                                      <span className="text-gray-600">API ({formatCurrencyLocal(0.10)}):</span>
                                       <span className="font-medium text-gray-900">
-                                        {formatCurrency(subMaster.currentMonth.apiCalls * 0.10)}
+                                        {formatCurrencyLocal(subMaster.currentMonth.apiCalls * 0.10)}
                                       </span>
                                     </div>
                                     <div className="flex justify-between">
-                                      <span className="text-gray-600">SMS (R0.50 ):</span>
+                                      <span className="text-gray-600">SMS ({formatCurrencyLocal(0.50)}):</span>
                                       <span className="font-medium text-gray-900">
-                                        {formatCurrency((subMaster.currentMonth.smsVerifications || 0) * 0.50)}
+                                        {formatCurrencyLocal((subMaster.currentMonth.smsVerifications || 0) * 0.50)}
                                       </span>
                                     </div>
                                     <div className="flex justify-between pt-2 border-t border-gray-200">
                                       <span className="font-semibold text-gray-900">Total:</span>
                                       <span className="font-bold text-orange-600">
-                                        {formatCurrency(subMaster.currentMonth.estimatedCost)}
+                                        {formatCurrencyLocal(subMaster.currentMonth.estimatedCost)}
                                       </span>
                                     </div>
                                   </div>
@@ -693,11 +701,11 @@ export default function MasterAccountDashboard() {
             <div>
               <h3 className="mb-2 font-semibold text-blue-900">Pricing Structure</h3>
               <div className="space-y-1 text-sm text-blue-800">
-                <p>• CV Upload: R1.20 per CV processed</p>
-                <p>• Chatbot Message: R0.35 per message sent</p>
-                <p>• API Call: R0.10 per API request</p>
-                <p>• SMS Verification: R0.50 per SMS sent</p>
-                <p className="pt-2 text-xs text-blue-600">* Costs are calculated automatically based on actual usage. Adjust rates in the cloud function as needed.</p>
+                <p>• CV Upload: {formatCurrencyLocal(1.20)} per CV processed</p>
+                <p>• Chatbot Message: {formatCurrencyLocal(0.35)} per message sent</p>
+                <p>• API Call: {formatCurrencyLocal(0.10)} per API request</p>
+                <p>• SMS Verification: {formatCurrencyLocal(0.50)} per SMS sent</p>
+                <p className="pt-2 text-xs text-blue-600">* Costs shown in {currencyInfo?.name} ({currency}). Base rates in ZAR. Adjust rates in the cloud function as needed.</p>
               </div>
             </div>
           </div>

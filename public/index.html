@@ -43,6 +43,26 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- Google Consent Mode v2 - Must load BEFORE any tracking scripts -->
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag("consent", "default", {
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied",
+            analytics_storage: "denied",
+            functionality_storage: "denied",
+            personalization_storage: "denied",
+            security_storage: "granted",
+            wait_for_update: 2000,
+        });
+        gtag("set", "ads_data_redaction", true);
+        gtag("set", "url_passthrough", true);
+    </script>
+
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8629316693437703"
      crossorigin="anonymous"></script>
@@ -60,13 +80,6 @@
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "Recruitment Software",
       "operatingSystem": "Web",
-      "offers": {
-        "@type": "AggregateOffer",
-        "priceCurrency": "ZAR",
-        "lowPrice": "0",
-        "highPrice": "1999",
-        "offerCount": "6"
-      },
       "aggregateRating": {
         "@type": "AggregateRating",
         "ratingValue": "4.8",
@@ -87,13 +100,29 @@
           "@type": "Offer",
           "name": "Free Plan",
           "price": "0",
-          "priceCurrency": "ZAR"
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
         },
         {
           "@type": "Offer",
           "name": "Starter Plan",
           "price": "199",
-          "priceCurrency": "ZAR"
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Professional Plan",
+          "price": "699",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Business Plan",
+          "price": "1499",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
         }
       ]
     }
@@ -122,7 +151,7 @@
 <body>
     <!-- Root element for React -->
     <div id="root"></div>
-    
+
     <!-- Main application entry point -->
     <script type="module" src="/main.jsx"></script>
     

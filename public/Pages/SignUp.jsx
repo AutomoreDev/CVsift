@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { trackSignUp, trackError, setAnalyticsUserId } from '../utils/analytics';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -69,16 +70,24 @@ export default function SignUp() {
     setErrors({});
 
     try {
-      await signup(formData.email, formData.password, formData.displayName);
+      const userCredential = await signup(formData.email, formData.password, formData.displayName);
+
+      // Track successful sign up
+      trackSignUp('email');
+      setAnalyticsUserId(userCredential.user.uid);
+
       setSuccess(true);
-      
+
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
         navigate('/dashboard');
       }, 2000);
     } catch (error) {
-      setErrors({ 
-        submit: error.message || 'Failed to create account. Please try again.' 
+      // Track sign up error
+      trackError('signup_failed', error.message, 'SignUp');
+
+      setErrors({
+        submit: error.message || 'Failed to create account. Please try again.'
       });
     } finally {
       setLoading(false);
@@ -91,8 +100,15 @@ export default function SignUp() {
 
     try {
       await signInWithGoogle();
+
+      // Track Google sign up/login
+      trackSignUp('google');
+
       navigate('/dashboard');
     } catch (error) {
+      // Track error
+      trackError('google_signup_failed', error.message, 'SignUp');
+
       setErrors({
         submit: error.message || 'Failed to sign in with Google. Please try again.'
       });

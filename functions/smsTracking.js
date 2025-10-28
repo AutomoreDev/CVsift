@@ -1,4 +1,4 @@
-const functions = require("firebase-functions");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 
 const db = admin.firestore();
@@ -7,18 +7,18 @@ const db = admin.firestore();
  * Cloud function to log SMS verifications
  * Called from the frontend when SMS is sent
  */
-exports.logSmsVerification = functions.https.onCall(async (data, context) => {
+exports.logSmsVerification = onCall({region: "us-central1"}, async (request) => {
   try {
     // Check if user is authenticated
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+    if (!request.auth) {
+      throw new HttpsError(
           "unauthenticated",
           "User must be authenticated to log SMS verifications",
       );
     }
 
-    const userId = context.auth.uid;
-    const {phoneNumber, purpose} = data; // purpose: 'mfa_enrollment', 'mfa_signin', 'phone_verification'
+    const userId = request.auth.uid;
+    const {phoneNumber, purpose} = request.data; // purpose: 'mfa_enrollment', 'mfa_signin', 'phone_verification'
 
     // Log the SMS verification
     await db.collection("smsLogs").add({
@@ -32,41 +32,41 @@ exports.logSmsVerification = functions.https.onCall(async (data, context) => {
     return {success: true, message: "SMS verification logged successfully"};
   } catch (error) {
     console.error("Error logging SMS verification:", error);
-    throw new functions.https.HttpsError("internal", error.message);
+    throw new HttpsError("internal", error.message);
   }
 });
 
 /**
  * Get SMS usage for a specific user
  */
-exports.getUserSmsUsage = functions.https.onCall(async (data, context) => {
+exports.getUserSmsUsage = onCall({region: "us-central1"}, async (request) => {
   try {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+    if (!request.auth) {
+      throw new HttpsError(
           "unauthenticated",
           "User must be authenticated",
       );
     }
 
-    const {userId, startDate, endDate} = data;
-    const targetUserId = userId || context.auth.uid;
+    const {userId, startDate, endDate} = request.data;
+    const targetUserId = userId || request.auth.uid;
 
     // Check permissions - only allow users to view their own data or masters to view sub-masters
-    const userDoc = await db.collection("users").doc(context.auth.uid).get();
+    const userDoc = await db.collection("users").doc(request.auth.uid).get();
     const userData = userDoc.data();
 
-    if (context.auth.uid !== targetUserId && userData.role !== "master") {
-      throw new functions.https.HttpsError(
+    if (request.auth.uid !== targetUserId && userData.role !== "master" && userData.role !== "submaster") {
+      throw new HttpsError(
           "permission-denied",
           "You don't have permission to view this user's SMS usage",
       );
     }
 
-    const query = db.collection("smsLogs")
+    let query = db.collection("smsLogs")
         .where("userId", "==", targetUserId);
 
     if (startDate && endDate) {
-      query.where("timestamp", ">=", admin.firestore.Timestamp.fromDate(new Date(startDate)))
+      query = query.where("timestamp", ">=", admin.firestore.Timestamp.fromDate(new Date(startDate)))
           .where("timestamp", "<=", admin.firestore.Timestamp.fromDate(new Date(endDate)));
     }
 
@@ -87,6 +87,6 @@ exports.getUserSmsUsage = functions.https.onCall(async (data, context) => {
     return smsUsage;
   } catch (error) {
     console.error("Error getting SMS usage:", error);
-    throw new functions.https.HttpsError("internal", error.message);
+    throw new HttpsError("internal", error.message);
   }
 });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { updateProfile, updateEmail, updatePassword, multiFactor, PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier } from 'firebase/auth';
+import { updateProfile, updateEmail, updatePassword, multiFactor, PhoneAuthProvider, PhoneMultiFactorGenerator, RecaptchaVerifier, EmailAuthProvider, reauthenticateWithCredential, GoogleAuthProvider, reauthenticateWithPopup } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../js/firebase-config';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import CVPackPurchase from '../components/CVPackPurchase';
 import CustomFieldsManager from '../components/CustomFieldsManager';
 import TeamCollaboration from '../components/TeamCollaboration';
+import { formatDate as formatDateUtil } from '../utils/dateUtils';
 import {
   ArrowLeft,
   User,
@@ -29,7 +30,9 @@ import {
   List,
   Users,
   Smartphone,
-  X
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function AccountSettings() {
@@ -54,6 +57,11 @@ export default function AccountSettings() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState(tabParam || 'profile');
+
+  // Password visibility toggles
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // MFA State
   const [mfaEnabled, setMfaEnabled] = useState(false);
@@ -229,17 +237,6 @@ export default function AccountSettings() {
       toast.success('Verification code sent to your phone!');
       console.log('=== MFA Enrollment Success ===');
 
-      // Log SMS verification for tracking
-      try {
-        const logSms = httpsCallable(functions, 'logSmsVerification');
-        await logSms({
-          phoneNumber: phoneNumber,
-          purpose: 'mfa_enrollment'
-        });
-      } catch (logError) {
-        console.error('Failed to log SMS verification:', logError);
-        // Don't block the flow if logging fails
-      }
     } catch (error) {
       console.error('=== MFA Enrollment Error ===');
       console.error('Error code:', error.code);
@@ -285,6 +282,18 @@ export default function AccountSettings() {
       await multiFactor(user).enroll(multiFactorAssertion, phoneNumber);
 
       toast.success('Two-factor authentication enabled successfully!');
+
+      // Log SMS verification for tracking AFTER successful enrollment
+      try {
+        const logSms = httpsCallable(functions, 'logSmsVerification');
+        await logSms({
+          phoneNumber: phoneNumber,
+          purpose: 'mfa_enrollment'
+        });
+      } catch (logError) {
+        console.error('Failed to log SMS verification:', logError);
+        // Don't block the flow if logging fails
+      }
 
       // Refresh enrolled factors
       const enrolledMfaFactors = multiFactor(user).enrolledFactors;
@@ -491,8 +500,39 @@ export default function AccountSettings() {
       return;
     }
 
+    if (!formData.currentPassword) {
+      setError('Please enter your current password');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await updatePassword(auth.currentUser, formData.newPassword);
+      const user = auth.currentUser;
+
+      // Re-authenticate the user first
+      const providerId = user.providerData[0]?.providerId;
+
+      if (providerId === 'password') {
+        // Re-authenticate with email/password
+        const credential = EmailAuthProvider.credential(
+          user.email,
+          formData.currentPassword
+        );
+        await reauthenticateWithCredential(user, credential);
+      } else if (providerId === 'google.com') {
+        // Re-authenticate with Google
+        const provider = new GoogleAuthProvider();
+        await reauthenticateWithPopup(user, provider);
+      } else {
+        setError('Password update not supported for your sign-in method');
+        setLoading(false);
+        return;
+      }
+
+      // Now update the password
+      await updatePassword(user, formData.newPassword);
+
+      toast.success('Password updated successfully!');
       setSuccess('Password updated successfully!');
       setFormData({
         ...formData,
@@ -501,8 +541,16 @@ export default function AccountSettings() {
         confirmPassword: ''
       });
     } catch (err) {
-      if (err.code === 'auth/requires-recent-login') {
-        setError('Please sign out and sign in again to change your password');
+      console.error('Password update error:', err);
+
+      if (err.code === 'auth/wrong-password') {
+        setError('Current password is incorrect');
+      } else if (err.code === 'auth/requires-recent-login') {
+        setError('Session expired. Please sign out and sign in again.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password is too weak. Use a stronger password.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Re-authentication cancelled. Please try again.');
       } else {
         setError(err.message || 'Failed to update password');
       }
@@ -511,15 +559,8 @@ export default function AccountSettings() {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  // Use the imported formatDate utility
+  const formatDate = formatDateUtil;
 
   const handleCancelSubscription = async () => {
     try {
@@ -993,35 +1034,79 @@ export default function AccountSettings() {
                   <form onSubmit={handleUpdatePassword} className="space-y-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-900 mb-2">
+                        Current Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? "text" : "password"}
+                          name="currentPassword"
+                          value={formData.currentPassword}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3.5 pr-12 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-medium transition-all"
+                          placeholder="Enter current password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          {showCurrentPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">
                         New Password
                       </label>
-                      <input
-                        type="password"
-                        name="newPassword"
-                        value={formData.newPassword}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-medium transition-all"
-                        placeholder="Enter new password"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showNewPassword ? "text" : "password"}
+                          name="newPassword"
+                          value={formData.newPassword}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3.5 pr-12 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-medium transition-all"
+                          placeholder="Enter new password (min 6 characters)"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
                       <label className="block text-sm font-bold text-gray-900 mb-2">
                         Confirm New Password
                       </label>
-                      <input
-                        type="password"
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3.5 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-medium transition-all"
-                        placeholder="Confirm new password"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          name="confirmPassword"
+                          value={formData.confirmPassword}
+                          onChange={handleChange}
+                          className="w-full px-4 py-3.5 pr-12 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none font-medium transition-all"
+                          placeholder="Confirm new password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
 
                     <button
                       type="submit"
-                      disabled={loading || !formData.newPassword || !formData.confirmPassword}
+                      disabled={loading || !formData.currentPassword || !formData.newPassword || !formData.confirmPassword}
                       className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all hover:scale-105 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                       <Save size={20} />
@@ -1419,7 +1504,7 @@ export default function AccountSettings() {
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-600">
-                                    {subMaster.createdAt ? new Date(subMaster.createdAt).toLocaleDateString() : 'N/A'}
+                                    {formatDateUtil(subMaster.createdAt)}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">

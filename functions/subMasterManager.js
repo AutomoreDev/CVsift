@@ -73,17 +73,29 @@ exports.addSubMaster = onCall({region: "us-central1"}, async (request) => {
 
     // Create/update user document in Firestore
     const userRef = db.collection("users").doc(userRecord.uid);
-    await userRef.set({
+    const userData = {
       email: email,
       displayName: displayName || email.split("@")[0],
       role: "submaster",
       plan: "enterprise", // Sub-masters get enterprise features
       cvUploadLimit: -1, // Unlimited
+      cvUploadsThisMonth: 0,
       isActive: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       createdBy: request.auth.uid,
-    }, {merge: true});
+    };
+
+    // Check if document exists and if it has createdAt
+    const existingDoc = await userRef.get();
+    if (!existingDoc.exists) {
+      // New document - set createdAt
+      userData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    } else if (!existingDoc.data().createdAt) {
+      // Existing document but missing createdAt - set it now
+      userData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    }
+
+    await userRef.set(userData, {merge: true});
 
     // Set custom claims
     await admin.auth().setCustomUserClaims(userRecord.uid, {
@@ -138,8 +150,8 @@ exports.listSubMasters = onCall({region: "us-central1"}, async (request) => {
         email: data.email,
         displayName: data.displayName,
         isActive: data.isActive !== false,
-        createdAt: data.createdAt?.toDate?.(),
-        updatedAt: data.updatedAt?.toDate?.(),
+        createdAt: data.createdAt?.toDate?.()?.toISOString?.() || null,
+        updatedAt: data.updatedAt?.toDate?.()?.toISOString?.() || null,
       });
     });
 

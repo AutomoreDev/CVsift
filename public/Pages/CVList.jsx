@@ -33,10 +33,10 @@ import {
   List
 } from 'lucide-react';
 import { canCreateJobSpecs, hasFeatureAccess } from '../config/planConfig';
-import { InFeedAd } from '../components/AdSenseAd';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MatchBreakdownReport from '../components/MatchBreakdownReport';
 import { useToast } from '../components/Toast';
+import { trackCVListFilter, trackCVBulkDelete, trackCVDelete, trackError } from '../utils/analytics';
 
 /**
  * Calculate years of experience from a work experience entry
@@ -686,6 +686,37 @@ export default function CVList() {
     }
 
     setFilteredCvs(filtered);
+
+    // Track filter usage (only if filters are actually applied)
+    const hasActiveFilters =
+      searchTerm ||
+      filters.status !== 'all' ||
+      filters.fileType !== 'all' ||
+      filters.gender !== 'all' ||
+      filters.race !== 'all' ||
+      filters.location ||
+      filters.skills ||
+      filters.ageMin ||
+      filters.ageMax ||
+      filters.dateFrom ||
+      filters.dateTo ||
+      selectedJobSpec;
+
+    if (hasActiveFilters) {
+      const activeFilters = [];
+      if (searchTerm) activeFilters.push('search');
+      if (filters.status !== 'all') activeFilters.push('status');
+      if (filters.fileType !== 'all') activeFilters.push('fileType');
+      if (filters.gender !== 'all') activeFilters.push('gender');
+      if (filters.race !== 'all') activeFilters.push('race');
+      if (filters.location) activeFilters.push('location');
+      if (filters.skills) activeFilters.push('skills');
+      if (filters.ageMin || filters.ageMax) activeFilters.push('age');
+      if (filters.dateFrom || filters.dateTo) activeFilters.push('date');
+      if (selectedJobSpec) activeFilters.push('jobSpec');
+
+      trackCVListFilter(activeFilters, cvs.length, filtered.length);
+    }
   };
 
   const handleSelectCV = (cvId) => {
@@ -714,6 +745,9 @@ export default function CVList() {
       const result = await deleteCV({ cvId });
 
       if (result.data.success) {
+        // Track CV deletion
+        trackCVDelete();
+
         // Update local state
         setCvs(prev => prev.filter(c => c.id !== cvId));
         setSelectedCvs(prev => prev.filter(id => id !== cvId));
@@ -724,6 +758,9 @@ export default function CVList() {
     } catch (error) {
       console.error('Error deleting CV:', error);
       toast.error('Failed to delete CV. Please try again.');
+
+      // Track deletion error
+      trackError('cv_delete_failed', error.message, 'CVList');
     } finally {
       setDeleting(false);
       setDeleteModal({ isOpen: false, cvId: null, isBulk: false });
@@ -758,6 +795,11 @@ export default function CVList() {
         }
       }
 
+      // Track bulk deletion
+      if (successCount > 0) {
+        trackCVBulkDelete(successCount);
+      }
+
       // Update local state
       setCvs(prev => prev.filter(c => !selectedCvs.includes(c.id)));
 
@@ -771,6 +813,9 @@ export default function CVList() {
     } catch (error) {
       console.error('Error deleting CVs:', error);
       toast.error('Failed to delete some CVs. Please try again.');
+
+      // Track bulk deletion error
+      trackError('cv_bulk_delete_failed', error.message, 'CVList');
     } finally {
       setDeleting(false);
       setDeleteModal({ isOpen: false, cvId: null, isBulk: false });
@@ -1853,8 +1898,6 @@ export default function CVList() {
           </div>
         )}
 
-        {/* AdSense Ad - Only for Free users */}
-        <InFeedAd className="max-w-5xl mx-auto" />
       </div>
 
       {/* Delete Confirmation Dialog */}

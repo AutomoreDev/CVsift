@@ -1,6 +1,7 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const {logJobSpecDelete} = require("./activityLogs");
+const {logApiCall} = require("./apiLogger");
 
 /**
  * Get team job specs for team members
@@ -44,6 +45,9 @@ exports.getTeamJobSpecs = onCall(async (request) => {
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Log API call for billing
+    await logApiCall(userId, "getTeamJobSpecs", "GET_TEAM_JOB_SPECS");
 
     return {
       success: true,
@@ -116,6 +120,9 @@ exports.deleteJobSpec = onCall(async (request) => {
 
     // Delete from Firestore
     await jobSpecRef.delete();
+
+    // Log API call for billing
+    await logApiCall(userId, "deleteJobSpec", "DELETE_JOB_SPEC");
 
     // Log deletion activity
     try {

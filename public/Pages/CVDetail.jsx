@@ -25,11 +25,14 @@ import {
   List,
   Edit2,
   Save,
-  X
+  X,
+  AlignLeft,
+  Linkedin
 } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { hasFeatureAccess } from '../config/planConfig';
+import { trackCVView, trackCVDelete, trackCVDownload, trackError } from '../utils/analytics';
 
 export default function CVDetail() {
   const { id } = useParams();
@@ -44,6 +47,7 @@ export default function CVDetail() {
   const [retrying, setRetrying] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [retryModal, setRetryModal] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Custom fields state
   const [customFieldConfigs, setCustomFieldConfigs] = useState([]);
@@ -81,6 +85,9 @@ export default function CVDetail() {
           };
           setCv(cvData);
 
+          // Track CV view
+          trackCVView(cvData.status);
+
           // Load custom field values
           if (cvData.customFields) {
             setCustomFieldValues(cvData.customFields);
@@ -99,6 +106,9 @@ export default function CVDetail() {
             uploadedAt: cvDoc.data().uploadedAt?.toDate() || new Date()
           };
           setCv(cvData);
+
+          // Track CV view
+          trackCVView(cvData.status);
 
           // Load custom field values
           if (cvData.customFields) {
@@ -166,6 +176,9 @@ export default function CVDetail() {
       const result = await deleteCV({ cvId: id });
 
       if (result.data.success) {
+        // Track CV deletion
+        trackCVDelete();
+
         toast.success('CV deleted successfully');
 
         // Navigate back to CV list after brief delay
@@ -178,6 +191,10 @@ export default function CVDetail() {
     } catch (err) {
       console.error('Error deleting CV:', err);
       toast.error('Failed to delete CV. Please try again.');
+
+      // Track deletion error
+      trackError('cv_delete_failed', err.message, 'CVDetail');
+
       setDeleting(false);
       setDeleteModal(false);
     }
@@ -254,7 +271,7 @@ export default function CVDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <button
@@ -313,12 +330,13 @@ export default function CVDetail() {
                 href={cv.downloadURL}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackCVDownload(cv.fileName)}
                 className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <Download size={18} />
                 <span className="font-medium">Download</span>
               </a>
-              {(cv.status === 'error' || !cv.parsed) && (
+              {(cv.status === 'error' || (!cv.parsed && cv.status !== 'processing')) && (
                 <button
                   onClick={() => setRetryModal(true)}
                   disabled={retrying}
@@ -431,6 +449,24 @@ export default function CVDetail() {
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Location</p>
                         <p className="text-gray-900 font-medium">{cv.metadata.location}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {cv.metadata.linkedin && (
+                    <div className="flex items-start space-x-3">
+                      <Linkedin size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">LinkedIn</p>
+                        <a
+                          href={cv.metadata.linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-900 font-medium hover:text-orange-500 flex items-center space-x-1"
+                        >
+                          <span>{cv.metadata.linkedin}</span>
+                          <ExternalLink size={14} />
+                        </a>
                       </div>
                     </div>
                   )}
@@ -712,14 +748,15 @@ export default function CVDetail() {
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl border-2 border-orange-200 p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-2">
-                <a
-                  href={cv.downloadURL}
-                  download
-                  className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
-                >
-                  <Download size={18} />
-                  <span className="font-medium">Download CV</span>
-                </a>
+                {cv.metadata?.summary && (
+                  <button
+                    onClick={() => setShowSummary(!showSummary)}
+                    className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+                  >
+                    <AlignLeft size={18} />
+                    <span className="font-medium">{showSummary ? 'Hide Summary' : 'View Summary'}</span>
+                  </button>
+                )}
                 <button
                   onClick={() => navigate('/cvs')}
                   className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
@@ -729,6 +766,17 @@ export default function CVDetail() {
                 </button>
               </div>
             </div>
+
+            {/* Summary Section */}
+            {showSummary && cv.metadata?.summary && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+                  <AlignLeft size={20} className="text-orange-500" />
+                  <span>Professional Summary</span>
+                </h2>
+                <p className="text-gray-700 leading-relaxed">{cv.metadata.summary}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -20,8 +20,8 @@ export default function VersionBadge({ className = '', position = 'bottom-right'
       className={`${positionClasses[position]} ${className}`}
       title={`CV-Sift ${versionData.releaseName} - Released ${versionData.releaseDate}`}
     >
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+        <span className="text-xs font-medium text-gray-500">
           v{versionData.version}
         </span>
       </div>

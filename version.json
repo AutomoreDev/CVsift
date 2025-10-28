@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
-  "releaseDate": "2025-10-24",
-  "releaseName": "Foundation Release",
+  "version": "1.1.0",
+  "releaseDate": "2025-10-29",
+  "releaseName": "Enhanced Intelligence Release",
   "features": [
     "Advanced CV matching algorithm with semantic understanding",
     "Multi-industry skill normalization (Tech, Finance, Healthcare, Arts, Construction, etc.)",
@@ -13,10 +13,33 @@
     "PayFast payment integration",
     "Activity logging and analytics",
     "SMS tracking",
-    "AI-powered CV parsing with Claude",
-    "Chatbot assistant"
+    "AI-powered CV parsing with Claude (Plan-based model selection)",
+    "Chatbot assistant",
+    "LinkedIn profile extraction and display",
+    "Professional summary extraction and toggle view"
   ],
   "changelog": {
+    "1.1.0": {
+      "date": "2025-10-29",
+      "type": "minor",
+      "changes": [
+        "Implemented plan-based Claude AI model selection (Haiku for Free/Starter/Basic, Sonnet 4.5 for Professional/Business/Enterprise)",
+        "Added LinkedIn profile URL extraction from CVs",
+        "Added LinkedIn profile display with external link in CV details",
+        "Added professional summary extraction from CVs",
+        "Replaced Download CV button with View Summary toggle button",
+        "Added collapsible Professional Summary section in CV details",
+        "Made all navigation bars sticky (Dashboard, CV List, CV Details, Analytics)",
+        "Fixed retry parsing button visibility during CV processing",
+        "Fixed currency display showing 'Custom' for zero values",
+        "Fixed ZAR currency rounding to show proper decimals (R1.20 vs R1.00)",
+        "Fixed missing formatCurrency import in Master Account Dashboard",
+        "Fixed createdAt timestamp for existing users converted to submasters",
+        "Removed debug logging that exposed Claude model selection strategy",
+        "Improved CV parsing retry functionality with shared parseCV function",
+        "Cost optimization: 67% savings on lower tier plans using Haiku model"
+      ]
+    },
     "1.0.0": {
       "date": "2025-10-24",
       "type": "major",

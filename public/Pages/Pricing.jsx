@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../js/firebase-config';
 import { CheckCircle2, ArrowLeft, Loader2, AlertCircle, Check, X } from 'lucide-react';
+import { trackPaymentInitiated, trackError } from '../utils/analytics';
+import useCurrency from '../hooks/useCurrency';
+import CurrencySelector from '../components/CurrencySelector';
 
 export default function Pricing() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(null);
   const [error, setError] = useState(null);
+  const { convertAndFormat, currency, loading: currencyLoading } = useCurrency();
 
   const pricingPlans = [
     {
@@ -140,6 +144,9 @@ export default function Pricing() {
 
       const { paymentUrl, paymentData, paymentId } = result.data;
 
+      // Track payment initiation
+      trackPaymentInitiated(plan.id, plan.price);
+
       // Store payment ID in localStorage so we can check status after redirect
       localStorage.setItem('pendingPaymentId', paymentId);
 
@@ -163,6 +170,9 @@ export default function Pricing() {
       console.error('Payment error:', err);
       setError(err.message || 'Failed to initiate payment. Please try again.');
       setLoading(null);
+
+      // Track payment initiation error
+      trackError('payment_initiation_failed', err.message, 'Pricing');
     }
   };
 
@@ -200,10 +210,16 @@ export default function Pricing() {
             Upgrade your account to unlock more features and increase your CV upload limit
           </p>
           {currentUser?.userData?.plan && (
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col items-center gap-3">
               <span className="inline-block px-4 py-2 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
                 Current Plan: <span className="capitalize">{currentUser.userData.plan}</span>
               </span>
+              <CurrencySelector />
+            </div>
+          )}
+          {!currentUser?.userData?.plan && (
+            <div className="mt-4 flex justify-center">
+              <CurrencySelector />
             </div>
           )}
         </div>
@@ -257,7 +273,9 @@ export default function Pricing() {
                 <div className="mb-4">
                   {plan.price !== null ? (
                     <div className="flex items-baseline justify-center">
-                      <span className="text-3xl font-bold text-gray-900">R{plan.price}</span>
+                      <span className="text-3xl font-bold text-gray-900">
+                        {currencyLoading ? 'Loading...' : convertAndFormat(plan.price)}
+                      </span>
                       <span className="ml-2 text-gray-500">/mo</span>
                     </div>
                   ) : (
@@ -364,7 +382,9 @@ export default function Pricing() {
                             {plan.name}
                           </span>
                           {plan.price !== null ? (
-                            <span className="text-xs text-gray-500 mt-1">R{plan.price}/mo</span>
+                            <span className="text-xs text-gray-500 mt-1">
+                              {currencyLoading ? '...' : convertAndFormat(plan.price)}/mo
+                            </span>
                           ) : (
                             <span className="text-xs text-gray-500 mt-1">Custom</span>
                           )}

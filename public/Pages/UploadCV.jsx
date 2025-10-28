@@ -16,6 +16,7 @@ import {
   Loader2,
   Archive
 } from 'lucide-react';
+import { trackCVUpload, trackCVBulkUpload, trackError } from '../utils/analytics';
 
 export default function UploadCV() {
   const { currentUser, refreshUserData, userData } = useAuth();
@@ -305,6 +306,9 @@ export default function UploadCV() {
               const docRef = await addDoc(collection(db, 'cvs'), cvData);
               console.log('CV document created with ID:', docRef.id, 'for user:', effectiveUserId);
 
+              // Track CV upload event
+              trackCVUpload(file.size, file.type, 'processing');
+
               // Increment user's CV upload counter or deduct from CV pack
               // Always update the owner's count, not the team member's
               const userRef = doc(db, 'users', effectiveUserId);
@@ -356,6 +360,13 @@ export default function UploadCV() {
     }
 
     setUploading(true);
+
+    // Track bulk upload event
+    if (pendingFiles.length > 1) {
+      const totalSizeMB = pendingFiles.reduce((sum, f) => sum + f.file.size, 0) / (1024 * 1024);
+      trackCVBulkUpload(pendingFiles.length, totalSizeMB.toFixed(2));
+    }
+
     const uploadPromises = [];
 
     for (const fileObj of pendingFiles) {
@@ -370,6 +381,9 @@ export default function UploadCV() {
           );
         })
         .catch((error) => {
+          // Track upload error
+          trackError('cv_upload_failed', error.message, 'UploadCV');
+
           setFiles(prev =>
             prev.map(f =>
               f.id === fileObj.id
