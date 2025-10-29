@@ -55,7 +55,7 @@ export const trackEvent = (eventName, eventParams = {}) => {
     logEvent(analytics, eventName, {
       ...eventParams,
       timestamp: new Date().toISOString(),
-      app_version: '1.0.0' // Update from version.json if needed
+      app_version: '1.1.0' // Update from version.json if needed
     });
     console.log('📊 Analytics Event:', eventName, eventParams);
   } catch (error) {
@@ -178,6 +178,25 @@ export const trackCVListFilter = (filterTypes, totalCount, filteredCount) => {
     total_cvs: totalCount,
     filtered_cvs: filteredCount,
     filter_count: filterTypes.length
+  });
+};
+
+export const trackCVRetryParsing = (cvId) => {
+  trackEvent('cv_retry_parsing', {
+    cv_id: cvId
+  });
+};
+
+export const trackCVSummaryView = (cvId, action) => {
+  trackEvent('cv_summary_view', {
+    cv_id: cvId,
+    action: action // 'show' or 'hide'
+  });
+};
+
+export const trackLinkedInClick = (cvId) => {
+  trackEvent('linkedin_click', {
+    cv_id: cvId
   });
 };
 

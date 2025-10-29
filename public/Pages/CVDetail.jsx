@@ -32,7 +32,7 @@ import {
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { hasFeatureAccess } from '../config/planConfig';
-import { trackCVView, trackCVDelete, trackCVDownload, trackError } from '../utils/analytics';
+import { trackCVView, trackCVDelete, trackCVDownload, trackError, trackCVRetryParsing, trackCVSummaryView, trackLinkedInClick } from '../utils/analytics';
 
 export default function CVDetail() {
   const { id } = useParams();
@@ -205,6 +205,9 @@ export default function CVDetail() {
       setRetrying(true);
       setRetryModal(false);
 
+      // Track retry parsing event
+      trackCVRetryParsing(id);
+
       // Call the Cloud Function to retry parsing
       const retryParsingFunction = httpsCallable(functions, 'retryParsing');
       const result = await retryParsingFunction({ cvId: id });
@@ -221,6 +224,7 @@ export default function CVDetail() {
     } catch (err) {
       console.error('Error retrying CV parsing:', err);
       toast.error('Failed to retry parsing. Please try again.');
+      trackError('cv_retry_parsing_failed', err.message, 'CVDetail');
       setRetrying(false);
     }
   };
@@ -462,6 +466,7 @@ export default function CVDetail() {
                           href={cv.metadata.linkedin}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => trackLinkedInClick(id)}
                           className="text-gray-900 font-medium hover:text-orange-500 flex items-center space-x-1"
                         >
                           <span>{cv.metadata.linkedin}</span>
@@ -750,7 +755,11 @@ export default function CVDetail() {
               <div className="space-y-2">
                 {cv.metadata?.summary && (
                   <button
-                    onClick={() => setShowSummary(!showSummary)}
+                    onClick={() => {
+                      const newState = !showSummary;
+                      setShowSummary(newState);
+                      trackCVSummaryView(id, newState ? 'show' : 'hide');
+                    }}
                     className="flex items-center justify-center space-x-2 w-full px-4 py-2 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
                   >
                     <AlignLeft size={18} />
