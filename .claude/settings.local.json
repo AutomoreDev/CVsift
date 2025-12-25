@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(npm run lint)",
+      "Bash(firebase functions:log:*)",
+      "Bash(firebase functions:list:*)",
+      "Bash(pkill:*)",
+      "Bash(git checkout:*)",
+      "Bash(firebase functions:delete:*)",
+      "Bash(find:*)",
+      "Bash(firebase functions:config:set:*)",
+      "Bash(ls:*)",
+      "Bash(while read file)",
+      "Bash(do if [ -f $file ])",
+      "Bash(then grep -l \"orange-\\|lime-\\|purple-400\" $file)",
+      "Bash(grep:*)",
+      "Bash(perl -pi -e:*)",
+      "Bash(npm run dev:*)",
+      "Bash(xargs ls:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
