@@ -1,8 +1,12 @@
 {
-  "version": "2.0.0",
-  "releaseDate": "2025-12-11",
-  "releaseName": "Modern Design System Release",
+  "version": "2.1.0",
+  "releaseDate": "2025-12-25",
+  "releaseName": "CV Builder & EEA Compliance Release",
   "features": [
+    "Professional CV Builder with customizable templates",
+    "AI-powered resume parsing for CV Builder",
+    "EEA Compliance tracking and reporting",
+    "Automated EEA2 report generation",
     "Advanced CV matching algorithm with semantic understanding",
     "Multi-industry skill normalization (Tech, Finance, Healthcare, Arts, Construction, etc.)",
     "Career progression analysis",
@@ -23,6 +27,34 @@
     "Consistent outline button styling"
   ],
   "changelog": {
+    "2.1.0": {
+      "date": "2025-12-25",
+      "type": "minor",
+      "changes": [
+        "Added Professional CV Builder with 4 customizable templates (Professional, Modern, Creative, Minimal)",
+        "Integrated AI-powered resume parsing using Claude for CV Builder auto-fill",
+        "Added custom color theme selection for CV templates",
+        "Implemented live CV preview with real-time updates",
+        "Added profile image upload support for CVs",
+        "Implemented PDF export functionality for generated CVs",
+        "Added auto-save functionality for CV Builder drafts",
+        "Implemented plan-based CV Builder limits (1 CV for free users, unlimited for paid plans)",
+        "Added EEA Compliance tracking module for South African businesses",
+        "Implemented automated EEA2 report generation with DoL compliance",
+        "Added real-time workforce demographics analysis",
+        "Implemented Employment Equity Act compliance monitoring",
+        "Added national and provincial EAP target tracking",
+        "Created hiring impact calculator for compliance planning",
+        "Added employee import functionality for EEA tracking",
+        "Implemented disability compliance tracking",
+        "Enhanced SEO with CV Builder and EEA Compliance keywords",
+        "Added FAQ schema markup for rich search results",
+        "Updated pricing page with CV Builder feature comparison",
+        "Added Firebase Storage rules for CV Builder uploads",
+        "Implemented Google Cloud KMS encryption for CV Builder PII data",
+        "Created 4 new Cloud Functions for CV Builder operations"
+      ]
+    },
     "2.0.0": {
       "date": "2025-12-11",
       "type": "major",

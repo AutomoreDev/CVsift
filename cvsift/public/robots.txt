@@ -8,9 +8,12 @@ Allow: /
 Disallow: /dashboard/
 Disallow: /admin/
 Disallow: /api/
+Disallow: /account-settings/
+Disallow: /analytics/
+Disallow: /master-dashboard/
 
 # Sitemap location
-Sitemap: https://cvsift-3dff8.web.app/sitemap.xml
+Sitemap: https://www.cvsift.co.za/sitemap.xml
 
 # Crawl delay for specific bots (optional)
 User-agent: Googlebot
