@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Primary Meta Tags -->
+    <title>CVSift - AI-Powered CV Screening & Recruitment Software | South Africa</title>
+    <meta name="title" content="CVSift - AI-Powered CV Screening & Recruitment Software | South Africa">
+    <meta name="description" content="Transform your recruitment with CVSift's AI-powered CV screening. Filter thousands of CVs in seconds, match candidates to job requirements, and find the perfect hire faster. Trusted by South African businesses.">
+    <meta name="keywords" content="CV filtering, recruitment software South Africa, AI hiring, candidate screening, resume parser, CV matching, applicant tracking, bulk CV upload, automated screening, recruitment automation, talent acquisition, HR software">
+    <meta name="author" content="CVSift">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://cvsift-3dff8.web.app/">
+
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cvsift-3dff8.web.app/">
+    <meta property="og:site_name" content="CVSift">
+    <meta property="og:title" content="CVSift - AI-Powered CV Screening & Recruitment Software">
+    <meta property="og:description" content="Filter thousands of CVs in seconds with AI-powered smart filtering. Match candidates to job requirements instantly and streamline your hiring process.">
+    <meta property="og:image" content="https://cvsift-3dff8.web.app/assets/images/cvfavicon.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="en_ZA">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://cvsift-3dff8.web.app/">
+    <meta name="twitter:title" content="CVSift - AI-Powered CV Screening & Recruitment Software">
+    <meta name="twitter:description" content="Filter thousands of CVs in seconds with AI-powered smart filtering. Match candidates to job requirements instantly.">
+    <meta name="twitter:image" content="https://cvsift-3dff8.web.app/assets/images/cvfavicon.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/assets/images/cvfavicon.png">
+    <link rel="apple-touch-icon" href="/assets/images/cvfavicon.png">
+    <link rel="shortcut icon" href="/assets/images/cvfavicon.png">
+
+    <!-- Preconnect to external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Google Consent Mode v2 - Must load BEFORE any tracking scripts -->
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag("consent", "default", {
+            ad_storage: "denied",
+            ad_user_data: "denied",
+            ad_personalization: "denied",
+            analytics_storage: "denied",
+            functionality_storage: "denied",
+            personalization_storage: "denied",
+            security_storage: "granted",
+            wait_for_update: 2000,
+        });
+        gtag("set", "ads_data_redaction", true);
+        gtag("set", "url_passthrough", true);
+    </script>
+
+    <!-- Google AdSense -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8629316693437703"
+     crossorigin="anonymous"></script>
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#ff6d38">
+    <meta name="apple-mobile-web-app-status-bar-style" content="#ff6d38">
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CVSift",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Recruitment Software",
+      "operatingSystem": "Web",
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "127"
+      },
+      "description": "AI-powered CV screening and recruitment software that helps businesses filter thousands of CVs in seconds and match candidates to job requirements.",
+      "featureList": [
+        "AI-Powered CV Parsing",
+        "Bulk CV Upload",
+        "Smart Candidate Matching",
+        "Skills-Based Filtering",
+        "Experience Matching",
+        "Location-Based Search",
+        "Automated Screening"
+      ],
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free Plan",
+          "price": "0",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Starter Plan",
+          "price": "199",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Professional Plan",
+          "price": "699",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        },
+        {
+          "@type": "Offer",
+          "name": "Business Plan",
+          "price": "1499",
+          "priceCurrency": "ZAR",
+          "availability": "https://schema.org/InStock"
+        }
+      ]
+    }
+    </script>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "CVSift",
+      "url": "https://cvsift-3dff8.web.app",
+      "logo": "https://cvsift-3dff8.web.app/assets/images/cvfavicon.png",
+      "description": "AI-powered recruitment software for modern businesses",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "ZA"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "Customer Support",
+        "email": "support@cvsift.com"
+      }
+    }
+    </script>
+</head>
+<body>
+    <!-- Root element for React -->
+    <div id="root"></div>
+
+    <!-- Main application entry point -->
+    <script type="module" src="/main.jsx"></script>
+    
+    <!-- Optional: Loading state while JS loads -->
+    <noscript>
+        <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, -apple-system, sans-serif;">
+            <div style="text-align: center;">
+                <h1 style="color: #ff6d38; margin-bottom: 1rem;">CVSift</h1>
+                <p>Please enable JavaScript to use this application.</p>
+            </div>
+        </div>
+    </noscript>
+</body>
+</html>

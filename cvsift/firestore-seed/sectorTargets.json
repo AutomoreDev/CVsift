@@ -1,0 +1,170 @@
+[
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "TOP_MANAGEMENT",
+    "maleTarget": 0.342,
+    "femaleTarget": 0.448,
+    "totalTarget": 0.790
+  },
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "SENIOR_MANAGEMENT",
+    "maleTarget": 0.423,
+    "femaleTarget": 0.435,
+    "totalTarget": 0.858
+  },
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "PROFESSIONALLY_QUALIFIED_MID_MANAGEMENT",
+    "maleTarget": 0.405,
+    "femaleTarget": 0.425,
+    "totalTarget": 0.830
+  },
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "SKILLED_TECHNICAL",
+    "maleTarget": 0.463,
+    "femaleTarget": 0.413,
+    "totalTarget": 0.876
+  },
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "SEMI_SKILLED",
+    "maleTarget": 0.502,
+    "femaleTarget": 0.380,
+    "totalTarget": 0.882
+  },
+  {
+    "sector": "FINANCIAL_INSURANCE",
+    "occupationalLevel": "UNSKILLED",
+    "maleTarget": 0.523,
+    "femaleTarget": 0.365,
+    "totalTarget": 0.888
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "TOP_MANAGEMENT",
+    "maleTarget": 0.350,
+    "femaleTarget": 0.440,
+    "totalTarget": 0.790
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "SENIOR_MANAGEMENT",
+    "maleTarget": 0.430,
+    "femaleTarget": 0.425,
+    "totalTarget": 0.855
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "PROFESSIONALLY_QUALIFIED_MID_MANAGEMENT",
+    "maleTarget": 0.410,
+    "femaleTarget": 0.420,
+    "totalTarget": 0.830
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "SKILLED_TECHNICAL",
+    "maleTarget": 0.470,
+    "femaleTarget": 0.410,
+    "totalTarget": 0.880
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "SEMI_SKILLED",
+    "maleTarget": 0.510,
+    "femaleTarget": 0.375,
+    "totalTarget": 0.885
+  },
+  {
+    "sector": "INFORMATION_COMMUNICATION",
+    "occupationalLevel": "UNSKILLED",
+    "maleTarget": 0.530,
+    "femaleTarget": 0.360,
+    "totalTarget": 0.890
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "TOP_MANAGEMENT",
+    "maleTarget": 0.345,
+    "femaleTarget": 0.445,
+    "totalTarget": 0.790
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "SENIOR_MANAGEMENT",
+    "maleTarget": 0.425,
+    "femaleTarget": 0.430,
+    "totalTarget": 0.855
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "PROFESSIONALLY_QUALIFIED_MID_MANAGEMENT",
+    "maleTarget": 0.408,
+    "femaleTarget": 0.422,
+    "totalTarget": 0.830
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "SKILLED_TECHNICAL",
+    "maleTarget": 0.465,
+    "femaleTarget": 0.415,
+    "totalTarget": 0.880
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "SEMI_SKILLED",
+    "maleTarget": 0.505,
+    "femaleTarget": 0.378,
+    "totalTarget": 0.883
+  },
+  {
+    "sector": "PROFESSIONAL_SCIENTIFIC_TECHNICAL",
+    "occupationalLevel": "UNSKILLED",
+    "maleTarget": 0.525,
+    "femaleTarget": 0.363,
+    "totalTarget": 0.888
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "TOP_MANAGEMENT",
+    "maleTarget": 0.355,
+    "femaleTarget": 0.435,
+    "totalTarget": 0.790
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "SENIOR_MANAGEMENT",
+    "maleTarget": 0.435,
+    "femaleTarget": 0.420,
+    "totalTarget": 0.855
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "PROFESSIONALLY_QUALIFIED_MID_MANAGEMENT",
+    "maleTarget": 0.415,
+    "femaleTarget": 0.415,
+    "totalTarget": 0.830
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "SKILLED_TECHNICAL",
+    "maleTarget": 0.475,
+    "femaleTarget": 0.405,
+    "totalTarget": 0.880
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "SEMI_SKILLED",
+    "maleTarget": 0.515,
+    "femaleTarget": 0.370,
+    "totalTarget": 0.885
+  },
+  {
+    "sector": "MANUFACTURING",
+    "occupationalLevel": "UNSKILLED",
+    "maleTarget": 0.535,
+    "femaleTarget": 0.355,
+    "totalTarget": 0.890
+  }
+]

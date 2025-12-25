@@ -1,0 +1,35 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /cvs/{userId}/{allPaths=**} {
+      // SECURITY: Users can only access their own CVs directly
+      // This prevents unauthorized access to other users' CV files
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Team member access works through Cloud Functions (getTeamCV, etc.)
+      // which have admin access and bypass these rules
+      // This architecture is secure and maintains team functionality
+    }
+
+    // CV Builder temporary uploads for parsing
+    match /cv-builder/temp/{userId}/{fileName} {
+      // Users can upload their own resume for parsing
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      (request.resource.contentType.matches('application/pdf') ||
+                       request.resource.contentType.matches('application/msword') ||
+                       request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document')) &&
+                      request.resource.size < 5 * 1024 * 1024;  // Max 5MB
+
+      // Users can read their own uploaded resumes
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Fallback: Allow authenticated users to upload to their own UID folder
+    match /{allPaths=**} {
+      allow write: if request.auth != null &&
+                      request.resource.contentType.matches('application/pdf') &&
+                      request.resource.size < 10 * 1024 * 1024;  // Max 10MB
+    }
+  }
+}

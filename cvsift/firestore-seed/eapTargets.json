@@ -1,0 +1,402 @@
+[
+  {
+    "eapType": "NATIONAL",
+    "demographic": "AM",
+    "target": 0.435
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "AF",
+    "target": 0.421
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "CM",
+    "target": 0.047
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "CF",
+    "target": 0.045
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "IM",
+    "target": 0.013
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "IF",
+    "target": 0.013
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "WM",
+    "target": 0.044
+  },
+  {
+    "eapType": "NATIONAL",
+    "demographic": "WF",
+    "target": 0.042
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "AM",
+    "target": 0.385
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "AF",
+    "target": 0.371
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "CM",
+    "target": 0.016
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "CF",
+    "target": 0.015
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "IM",
+    "target": 0.027
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "IF",
+    "target": 0.026
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "WM",
+    "target": 0.083
+  },
+  {
+    "eapType": "GAUTENG",
+    "demographic": "WF",
+    "target": 0.080
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "AM",
+    "target": 0.189
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "AF",
+    "target": 0.182
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "CM",
+    "target": 0.252
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "CF",
+    "target": 0.243
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "IM",
+    "target": 0.007
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "IF",
+    "target": 0.007
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "WM",
+    "target": 0.061
+  },
+  {
+    "eapType": "WESTERN_CAPE",
+    "demographic": "WF",
+    "target": 0.059
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "AM",
+    "target": 0.416
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "AF",
+    "target": 0.401
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "CM",
+    "target": 0.009
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "CF",
+    "target": 0.009
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "IM",
+    "target": 0.057
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "IF",
+    "target": 0.055
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "WM",
+    "target": 0.027
+  },
+  {
+    "eapType": "KWAZULU_NATAL",
+    "demographic": "WF",
+    "target": 0.026
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "AM",
+    "target": 0.438
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "AF",
+    "target": 0.422
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "CM",
+    "target": 0.036
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "CF",
+    "target": 0.035
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "IM",
+    "target": 0.002
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "IF",
+    "target": 0.002
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "WM",
+    "target": 0.032
+  },
+  {
+    "eapType": "EASTERN_CAPE",
+    "demographic": "WF",
+    "target": 0.031
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "AM",
+    "target": 0.490
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "AF",
+    "target": 0.472
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "CM",
+    "target": 0.001
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "CF",
+    "target": 0.001
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "IM",
+    "target": 0.002
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "IF",
+    "target": 0.002
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "WM",
+    "target": 0.016
+  },
+  {
+    "eapType": "LIMPOPO",
+    "demographic": "WF",
+    "target": 0.015
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "AM",
+    "target": 0.452
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "AF",
+    "target": 0.436
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "CM",
+    "target": 0.004
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "CF",
+    "target": 0.004
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "IM",
+    "target": 0.008
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "IF",
+    "target": 0.008
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "WM",
+    "target": 0.043
+  },
+  {
+    "eapType": "MPUMALANGA",
+    "demographic": "WF",
+    "target": 0.042
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "AM",
+    "target": 0.466
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "AF",
+    "target": 0.449
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "CM",
+    "target": 0.006
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "CF",
+    "target": 0.006
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "IM",
+    "target": 0.005
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "IF",
+    "target": 0.005
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "WM",
+    "target": 0.031
+  },
+  {
+    "eapType": "NORTH_WEST",
+    "demographic": "WF",
+    "target": 0.030
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "AM",
+    "target": 0.444
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "AF",
+    "target": 0.428
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "CM",
+    "target": 0.016
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "CF",
+    "target": 0.015
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "IM",
+    "target": 0.003
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "IF",
+    "target": 0.003
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "WM",
+    "target": 0.045
+  },
+  {
+    "eapType": "FREE_STATE",
+    "demographic": "WF",
+    "target": 0.043
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "AM",
+    "target": 0.316
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "AF",
+    "target": 0.305
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "CM",
+    "target": 0.186
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "CF",
+    "target": 0.179
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "IM",
+    "target": 0.001
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "IF",
+    "target": 0.001
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "WM",
+    "target": 0.056
+  },
+  {
+    "eapType": "NORTHERN_CAPE",
+    "demographic": "WF",
+    "target": 0.054
+  }
+]

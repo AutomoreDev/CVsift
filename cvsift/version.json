@@ -1,0 +1,87 @@
+{
+  "version": "2.0.0",
+  "releaseDate": "2025-12-11",
+  "releaseName": "Modern Design System Release",
+  "features": [
+    "Advanced CV matching algorithm with semantic understanding",
+    "Multi-industry skill normalization (Tech, Finance, Healthcare, Arts, Construction, etc.)",
+    "Career progression analysis",
+    "Industry alignment scoring",
+    "Over-qualification detection",
+    "Team collaboration features",
+    "Master account management",
+    "PayFast payment integration",
+    "Activity logging and analytics",
+    "SMS tracking",
+    "AI-powered CV parsing with Claude (Plan-based model selection)",
+    "Chatbot assistant",
+    "LinkedIn profile extraction and display",
+    "Professional summary extraction and toggle view",
+    "Modern design system with 60/30/10 color rule",
+    "GSAP-powered animations",
+    "Rotating tips system",
+    "Consistent outline button styling"
+  ],
+  "changelog": {
+    "2.0.0": {
+      "date": "2025-12-11",
+      "type": "major",
+      "changes": [
+        "Complete UI redesign with new design system (60/30/10 color rule)",
+        "New color palette: Dominant #F8F9FA, Secondary #2C3E50, Accent #3B82F6",
+        "Typography update: Poppins for headings, Work Sans for body text",
+        "Integrated GSAP animations throughout the application",
+        "Redesigned toast notifications with white background and colored left borders",
+        "Fixed toast transparency and text truncation issues",
+        "Redesigned Dashboard with CV count in navbar",
+        "Removed emojis from dashboard cards",
+        "Enhanced quick action cards with button-like appearance",
+        "Implemented rotating tips system that changes every 2 days",
+        "Standardized outline button styling across navigation",
+        "Updated Master Dashboard, AI Assistant, and user menu buttons to outline style",
+        "Made Master Account Dashboard header sticky",
+        "Updated job spec selector: changed placeholder to 'Match to Job Spec'",
+        "Removed job spec selector label and Briefcase icon",
+        "Repositioned job spec selector above search bar",
+        "Updated 'Create Job Spec' button to match filter button design",
+        "Standardized back button styling across CV pages",
+        "Improved overall consistency and visual hierarchy",
+        "Enhanced hover states and transitions throughout the application"
+      ]
+    },
+    "1.1.0": {
+      "date": "2025-10-29",
+      "type": "minor",
+      "changes": [
+        "Implemented plan-based Claude AI model selection (Haiku for Free/Starter/Basic, Sonnet 4.5 for Professional/Business/Enterprise)",
+        "Added LinkedIn profile URL extraction from CVs",
+        "Added LinkedIn profile display with external link in CV details",
+        "Added professional summary extraction from CVs",
+        "Replaced Download CV button with View Summary toggle button",
+        "Added collapsible Professional Summary section in CV details",
+        "Made all navigation bars sticky (Dashboard, CV List, CV Details, Analytics)",
+        "Fixed retry parsing button visibility during CV processing",
+        "Fixed currency display showing 'Custom' for zero values",
+        "Fixed ZAR currency rounding to show proper decimals (R1.20 vs R1.00)",
+        "Fixed missing formatCurrency import in Master Account Dashboard",
+        "Fixed createdAt timestamp for existing users converted to submasters",
+        "Removed debug logging that exposed Claude model selection strategy",
+        "Improved CV parsing retry functionality with shared parseCV function",
+        "Cost optimization: 67% savings on lower tier plans using Haiku model"
+      ]
+    },
+    "1.0.0": {
+      "date": "2025-10-24",
+      "type": "major",
+      "changes": [
+        "Initial production release",
+        "Complete CV matching system with advanced algorithms",
+        "Multi-industry support",
+        "Team collaboration features",
+        "Payment and subscription management",
+        "Analytics and reporting",
+        "Established V2 R&D framework for future enhancements"
+      ]
+    }
+  }
+}
