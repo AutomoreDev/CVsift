@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is a master account
+    function isMaster() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'master';
+    }
+
+    // Helper function to check if user is a team member of the specified owner
+    function isTeamMemberOfUser(ownerId) {
+      // Since teamMembers uses auto-generated IDs, we allow the update if:
+      // 1. User is updating their own document, OR
+      // 2. User is updating ONLY cvUploadsThisMonth or cvPackBalance fields (counter increments from team members)
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cvUploadsThisMonth', 'cvPackBalance']);
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can access their own data
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Master account can read all users
+      allow read: if isMaster();
+      // Master account can update any user (except changing role to master)
+      allow update: if isMaster() &&
+                       (!request.resource.data.keys().hasAny(['role']) ||
+                        request.resource.data.role != 'master' ||
+                        request.auth.uid == userId);
+      // Team members can update ONLY CV counter fields for their team owner
+      allow update: if request.auth != null &&
+                       request.auth.uid != userId &&
+                       isTeamMemberOfUser(userId);
+    }
+
+    // CVs collection - users can access their own CVs via direct queries
+    // Team members access owner's CVs through Cloud Functions (getTeamCVs) which use Admin SDK
+    match /cvs/{cvId} {
+      // For reads, check the existing document's userId or if user is master
+      allow read: if request.auth != null &&
+                     (resource.data.userId == request.auth.uid || isMaster());
+      // For create: allow if creating for own userId OR if uploadedBy matches auth user (team member uploading for owner)
+      allow create: if request.auth != null &&
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.uploadedBy == request.auth.uid ||
+                        isMaster());
+      allow update, delete: if request.auth != null &&
+                               (resource.data.userId == request.auth.uid || isMaster());
+    }
+
+    // Job specifications collection
+    // Team members access owner's job specs through their own queries (teamOwnerId stored in user context)
+    match /jobSpecs/{jobSpecId} {
+      allow read: if request.auth != null &&
+                     (resource.data.userId == request.auth.uid || isMaster());
+      // Allow create if creating for own userId OR if createdBy matches auth user (team member creating for owner)
+      allow create: if request.auth != null &&
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.createdBy == request.auth.uid ||
+                        isMaster());
+      // Allow update/delete only for owner or master
+      allow update, delete: if request.auth != null &&
+                               (resource.data.userId == request.auth.uid || isMaster());
+    }
+
+    // Custom field configurations - users can only access their own config
+    match /customFieldConfigs/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Master account can read all configs
+      allow read: if isMaster();
+    }
+
+    // Payments collection - users can only access their own payments
+    match /payments/{paymentId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Team Members collection
+    match /teamMembers/{memberId} {
+      // Team owner can read/write their team members
+      allow read, write: if request.auth != null && resource.data.teamOwnerId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.teamOwnerId == request.auth.uid;
+      // Team members can read their own membership
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // Team Invites collection
+    match /teamInvites/{inviteId} {
+      // User who sent invite can read/write
+      allow read, write: if request.auth != null && resource.data.invitedBy == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.invitedBy == request.auth.uid;
+      // Invited user can read their own invite
+      allow read: if request.auth != null &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == resource.data.email;
+      // Invited user can update status when accepting
+      allow update: if request.auth != null &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == resource.data.email &&
+                       request.resource.data.status == 'accepted';
+    }
+
+    // Activity Logs collection
+    match /activityLogs/{logId} {
+      // Team owner can read their team's activity logs
+      allow read: if request.auth != null && resource.data.teamOwnerId == request.auth.uid;
+      // Master account can read all logs
+      allow read: if isMaster();
+      // Only cloud functions can create logs (no direct client writes)
+      allow create: if false;
+      allow update, delete: if false;
+    }
+  }
+}

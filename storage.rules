@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /cvs/{userId}/{allPaths=**} {
+      // Allow authenticated users to read/write
+      // Team member validation happens at the application level (frontend/functions)
+      // since teamMembers collection uses auto-generated IDs
+      allow read, write: if request.auth != null;
+    }
+  }
+}

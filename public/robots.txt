@@ -1,0 +1,20 @@
+# robots.txt for CVSift
+
+# Allow all search engines
+User-agent: *
+Allow: /
+
+# Disallow admin and private pages
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://cvsift-3dff8.web.app/sitemap.xml
+
+# Crawl delay for specific bots (optional)
+User-agent: Googlebot
+Crawl-delay: 0
+
+User-agent: Bingbot
+Crawl-delay: 1
